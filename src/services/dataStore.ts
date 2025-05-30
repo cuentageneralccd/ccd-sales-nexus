@@ -1,4 +1,3 @@
-
 // Store de datos local con persistencia
 interface DataStore {
   leads: any[];
@@ -8,6 +7,10 @@ interface DataStore {
   templates: any[];
   financialData: any;
   settings: any;
+  advisorMetrics: any[];
+  leadClassifications: any[];
+  qualityReviews: any[];
+  followUpTasks: any[];
 }
 
 class LocalDataStore {
@@ -53,7 +56,11 @@ class LocalDataStore {
         autoAssignment: true,
         callRecording: true,
         smsNotifications: true
-      }
+      },
+      advisorMetrics: [],
+      leadClassifications: [],
+      qualityReviews: [],
+      followUpTasks: []
     };
   }
 
@@ -67,7 +74,206 @@ class LocalDataStore {
     if (this.data.agents.length === 0) {
       this.data.agents = this.generateSampleAgents();
     }
+    
+    // Inicializar nuevos datos
+    if (!this.data.advisorMetrics) {
+      this.data.advisorMetrics = this.generateAdvisorMetrics();
+    }
+    if (!this.data.leadClassifications) {
+      this.data.leadClassifications = this.generateLeadClassifications();
+    }
+    if (!this.data.qualityReviews) {
+      this.data.qualityReviews = [];
+    }
+    if (!this.data.followUpTasks) {
+      this.data.followUpTasks = this.generateFollowUpTasks();
+    }
+    
     this.saveToStorage();
+  }
+
+  private generateAdvisorMetrics(): any[] {
+    const names = [
+      'Carlos Mendoza', 'María González', 'Roberto Silva', 'Ana López', 'Jorge Ramírez',
+      'Carmen Torres', 'Pedro Martín', 'Lucía Herrera', 'Diego Ruiz', 'Sofía Castro',
+      'Andrés Morales', 'Gabriela Vega', 'Francisco Delgado', 'Valeria Ramos', 'Miguel Ángel Soto'
+    ];
+    
+    const campaigns = ['Prospección Q2 2025', 'Seguimiento Clientes', 'Black Friday', 'Referidos VIP'];
+    const shifts = ['Mañana (08:00-16:00)', 'Tarde (14:00-22:00)', 'Noche (20:00-04:00)'];
+    const statuses = ['ACTIVE', 'BREAK', 'LUNCH', 'TRAINING', 'OFFLINE'];
+
+    return Array.from({ length: 100 }, (_, i) => ({
+      id: `advisor_${String(i + 1).padStart(3, '0')}`,
+      name: names[i % names.length] + ` (${i + 1})`,
+      email: `advisor${i + 1}@ccdcrm.com`,
+      status: statuses[Math.floor(Math.random() * statuses.length)],
+      campaign: campaigns[Math.floor(Math.random() * campaigns.length)],
+      shift: shifts[Math.floor(Math.random() * shifts.length)],
+      
+      // Métricas de llamadas
+      callsToday: Math.floor(Math.random() * 80) + 20,
+      callsWeek: Math.floor(Math.random() * 400) + 100,
+      callsMonth: Math.floor(Math.random() * 1600) + 400,
+      avgCallDuration: Math.floor(Math.random() * 300) + 180, // segundos
+      totalCallTime: Math.floor(Math.random() * 28800) + 7200, // segundos
+      
+      // Métricas de conversión
+      contactsToday: Math.floor(Math.random() * 60) + 15,
+      appointmentsToday: Math.floor(Math.random() * 8) + 2,
+      salesToday: Math.floor(Math.random() * 5) + 1,
+      conversionRate: Math.round((Math.random() * 15 + 5) * 10) / 10,
+      appointmentRate: Math.round((Math.random() * 20 + 10) * 10) / 10,
+      
+      // Métricas de calidad
+      qualityScore: Math.round((Math.random() * 30 + 65) * 10) / 10,
+      customerSatisfaction: Math.round((Math.random() * 20 + 75) * 10) / 10,
+      scriptCompliance: Math.round((Math.random() * 25 + 70) * 10) / 10,
+      objectionHandling: Math.round((Math.random() * 30 + 65) * 10) / 10,
+      
+      // Productividad
+      leadsAssigned: Math.floor(Math.random() * 50) + 20,
+      leadsContacted: Math.floor(Math.random() * 40) + 15,
+      leadsConverted: Math.floor(Math.random() * 8) + 2,
+      avgResponseTime: Math.floor(Math.random() * 300) + 60, // segundos
+      followUpRate: Math.round((Math.random() * 20 + 75) * 10) / 10,
+      
+      // Horarios y asistencia
+      loginTime: new Date(Date.now() - Math.random() * 8 * 60 * 60 * 1000).toISOString(),
+      breakTime: Math.floor(Math.random() * 1800) + 900, // segundos
+      productiveTime: Math.floor(Math.random() * 25200) + 18000, // segundos
+      idleTime: Math.floor(Math.random() * 3600) + 600, // segundos
+      
+      lastActivity: new Date(Date.now() - Math.random() * 60 * 60 * 1000).toISOString(),
+      ranking: i + 1
+    }));
+  }
+
+  private generateLeadClassifications(): any[] {
+    const leadTypes = ['HOT', 'WARM', 'COLD', 'QUALIFIED', 'UNQUALIFIED'];
+    const budgetRanges = ['LOW', 'MEDIUM', 'HIGH', 'PREMIUM'];
+    const timelines = ['IMMEDIATE', 'WEEK', 'MONTH', 'QUARTER', 'LONG_TERM'];
+    const authorities = ['DECISION_MAKER', 'INFLUENCER', 'USER', 'UNKNOWN'];
+    const stages = ['NEW', 'CONTACTED', 'QUALIFIED', 'PRESENTATION', 'PROPOSAL', 'NEGOTIATION', 'CLOSED_WON', 'CLOSED_LOST'];
+
+    return Array.from({ length: 75 }, (_, i) => ({
+      id: `classification_${i + 1}`,
+      leadId: `lead_${i + 1}`,
+      advisorId: `advisor_${String(Math.floor(Math.random() * 100) + 1).padStart(3, '0')}`,
+      
+      leadType: leadTypes[Math.floor(Math.random() * leadTypes.length)],
+      interest_level: Math.floor(Math.random() * 10) + 1,
+      budget_range: budgetRanges[Math.floor(Math.random() * budgetRanges.length)],
+      decision_timeline: timelines[Math.floor(Math.random() * timelines.length)],
+      authority_level: authorities[Math.floor(Math.random() * authorities.length)],
+      
+      currentStage: stages[Math.floor(Math.random() * stages.length)],
+      previousStages: [],
+      stageHistory: [
+        {
+          stage: 'NEW',
+          date: new Date(Date.now() - Math.random() * 30 * 24 * 60 * 60 * 1000).toISOString(),
+          advisorId: `advisor_${String(Math.floor(Math.random() * 100) + 1).padStart(3, '0')}`,
+          duration: Math.floor(Math.random() * 1440), // minutos
+          notes: 'Lead inicial recibido del sistema'
+        }
+      ],
+      
+      observations: this.generateObservations(i + 1),
+      promotions: this.generatePromotions(i + 1),
+      
+      contactAttempts: Math.floor(Math.random() * 8) + 1,
+      lastContactDate: new Date(Date.now() - Math.random() * 7 * 24 * 60 * 60 * 1000).toISOString(),
+      nextContactDate: new Date(Date.now() + Math.random() * 7 * 24 * 60 * 60 * 1000).toISOString(),
+      responseRate: Math.round((Math.random() * 40 + 40) * 10) / 10,
+      engagementScore: Math.round((Math.random() * 50 + 30) * 10) / 10,
+      
+      createdAt: new Date(Date.now() - Math.random() * 30 * 24 * 60 * 60 * 1000).toISOString(),
+      updatedAt: new Date().toISOString()
+    }));
+  }
+
+  private generateObservations(leadIndex: number): any[] {
+    const types = ['CALL', 'EMAIL', 'MEETING', 'NOTE', 'TASK'];
+    const priorities = ['LOW', 'MEDIUM', 'HIGH', 'URGENT'];
+    const contents = [
+      'Cliente interesado en el producto premium',
+      'Solicitó información adicional sobre precios',
+      'Reunión programada para la próxima semana',
+      'Cliente con dudas sobre la implementación',
+      'Seguimiento post-demo muy positivo',
+      'Necesita aprobación del presupuesto',
+      'Compartió información con el equipo',
+      'Solicita referencias de otros clientes'
+    ];
+
+    const numObservations = Math.floor(Math.random() * 5) + 1;
+    return Array.from({ length: numObservations }, (_, i) => ({
+      id: `obs_${leadIndex}_${i + 1}`,
+      date: new Date(Date.now() - Math.random() * 14 * 24 * 60 * 60 * 1000).toISOString(),
+      advisorId: `advisor_${String(Math.floor(Math.random() * 100) + 1).padStart(3, '0')}`,
+      type: types[Math.floor(Math.random() * types.length)],
+      content: contents[Math.floor(Math.random() * contents.length)],
+      priority: priorities[Math.floor(Math.random() * priorities.length)],
+      followUpDate: Math.random() > 0.5 ? new Date(Date.now() + Math.random() * 7 * 24 * 60 * 60 * 1000).toISOString() : undefined,
+      completed: Math.random() > 0.3
+    }));
+  }
+
+  private generatePromotions(leadIndex: number): any[] {
+    const promotions = [
+      { name: 'Descuento Lanzamiento', description: 'Descuento especial por ser cliente nuevo', discount: 15 },
+      { name: 'Black Friday', description: 'Oferta limitada de fin de año', discount: 25 },
+      { name: 'Upgrade Gratuito', description: 'Upgrade sin costo adicional', discount: 10 },
+      { name: 'Paquete Premium', description: 'Acceso completo por 3 meses', discount: 20 }
+    ];
+
+    if (Math.random() > 0.6) return []; // 40% de leads sin promociones
+
+    const numPromotions = Math.floor(Math.random() * 2) + 1;
+    return Array.from({ length: numPromotions }, (_, i) => {
+      const promo = promotions[Math.floor(Math.random() * promotions.length)];
+      return {
+        id: `promo_${leadIndex}_${i + 1}`,
+        ...promo,
+        validUntil: new Date(Date.now() + Math.random() * 30 * 24 * 60 * 60 * 1000).toISOString(),
+        applied: Math.random() > 0.7,
+        appliedDate: Math.random() > 0.5 ? new Date(Date.now() - Math.random() * 7 * 24 * 60 * 60 * 1000).toISOString() : undefined,
+        status: ['PENDING', 'ACCEPTED', 'REJECTED', 'EXPIRED'][Math.floor(Math.random() * 4)]
+      };
+    });
+  }
+
+  private generateFollowUpTasks(): any[] {
+    const types = ['CALL', 'EMAIL', 'MEETING', 'QUOTE', 'PRESENTATION'];
+    const priorities = ['LOW', 'MEDIUM', 'HIGH', 'URGENT'];
+    const statuses = ['PENDING', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED'];
+    
+    const titles = [
+      'Llamada de seguimiento',
+      'Enviar propuesta comercial',
+      'Reunión de presentación',
+      'Cotización personalizada',
+      'Demo del producto',
+      'Seguimiento post-reunión',
+      'Aclarar dudas técnicas',
+      'Negociación final'
+    ];
+
+    return Array.from({ length: 50 }, (_, i) => ({
+      id: `task_${i + 1}`,
+      leadId: `lead_${Math.floor(Math.random() * 75) + 1}`,
+      advisorId: `advisor_${String(Math.floor(Math.random() * 100) + 1).padStart(3, '0')}`,
+      type: types[Math.floor(Math.random() * types.length)],
+      title: titles[Math.floor(Math.random() * titles.length)],
+      description: 'Tarea generada automáticamente para seguimiento del lead',
+      scheduledDate: new Date(Date.now() + (Math.random() - 0.5) * 14 * 24 * 60 * 60 * 1000).toISOString(),
+      priority: priorities[Math.floor(Math.random() * priorities.length)],
+      status: statuses[Math.floor(Math.random() * statuses.length)],
+      completedDate: Math.random() > 0.6 ? new Date(Date.now() - Math.random() * 7 * 24 * 60 * 60 * 1000).toISOString() : undefined,
+      result: Math.random() > 0.7 ? 'Tarea completada exitosamente' : undefined,
+      nextAction: Math.random() > 0.8 ? 'Programar siguiente seguimiento' : undefined
+    }));
   }
 
   private generateSampleLeads(): any[] {
@@ -267,6 +473,119 @@ class LocalDataStore {
   updateFinancialData(data: any): void {
     this.data.financialData = { ...this.data.financialData, ...data };
     this.saveToStorage();
+  }
+
+  // Métodos para advisor metrics
+  getAdvisorMetrics(): any[] {
+    return [...(this.data.advisorMetrics || [])];
+  }
+
+  updateAdvisorStatus(advisorId: string, status: string): void {
+    const advisors = this.data.advisorMetrics || [];
+    const index = advisors.findIndex(advisor => advisor.id === advisorId);
+    if (index !== -1) {
+      advisors[index].status = status;
+      advisors[index].lastActivity = new Date().toISOString();
+      this.saveToStorage();
+    }
+  }
+
+  addQualityReview(review: any): void {
+    if (!this.data.qualityReviews) {
+      this.data.qualityReviews = [];
+    }
+    
+    const newReview = {
+      ...review,
+      id: `review_${Date.now()}`,
+      date: new Date().toISOString()
+    };
+    
+    this.data.qualityReviews.unshift(newReview);
+    this.saveToStorage();
+  }
+
+  getQualityReviews(): any[] {
+    return [...(this.data.qualityReviews || [])];
+  }
+
+  // Métodos para lead classification
+  getLeadClassifications(): any[] {
+    return [...(this.data.leadClassifications || [])];
+  }
+
+  updateLeadClassification(leadId: string, updates: any): void {
+    const classifications = this.data.leadClassifications || [];
+    const index = classifications.findIndex(c => c.leadId === leadId);
+    
+    if (index !== -1) {
+      classifications[index] = { ...classifications[index], ...updates, updatedAt: new Date().toISOString() };
+    } else {
+      // Crear nueva clasificación
+      const newClassification = {
+        id: `classification_${Date.now()}`,
+        leadId,
+        ...updates,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+      classifications.push(newClassification);
+    }
+    
+    this.saveToStorage();
+  }
+
+  addLeadObservation(leadId: string, observation: any): void {
+    const classifications = this.data.leadClassifications || [];
+    const index = classifications.findIndex(c => c.leadId === leadId);
+    
+    if (index !== -1) {
+      if (!classifications[index].observations) {
+        classifications[index].observations = [];
+      }
+      classifications[index].observations.push(observation);
+      classifications[index].updatedAt = new Date().toISOString();
+      this.saveToStorage();
+    }
+  }
+
+  applyPromotion(leadId: string, promotionId: string): void {
+    const classifications = this.data.leadClassifications || [];
+    const index = classifications.findIndex(c => c.leadId === leadId);
+    
+    if (index !== -1 && classifications[index].promotions) {
+      const promoIndex = classifications[index].promotions.findIndex((p: any) => p.id === promotionId);
+      if (promoIndex !== -1) {
+        classifications[index].promotions[promoIndex].applied = true;
+        classifications[index].promotions[promoIndex].appliedDate = new Date().toISOString();
+        classifications[index].promotions[promoIndex].status = 'ACCEPTED';
+        classifications[index].updatedAt = new Date().toISOString();
+        this.saveToStorage();
+      }
+    }
+  }
+
+  // Métodos para follow-up tasks
+  getFollowUpTasks(): any[] {
+    return [...(this.data.followUpTasks || [])];
+  }
+
+  addFollowUpTask(task: any): void {
+    if (!this.data.followUpTasks) {
+      this.data.followUpTasks = [];
+    }
+    
+    this.data.followUpTasks.unshift(task);
+    this.saveToStorage();
+  }
+
+  updateFollowUpTask(taskId: string, updates: any): void {
+    const tasks = this.data.followUpTasks || [];
+    const index = tasks.findIndex(task => task.id === taskId);
+    if (index !== -1) {
+      tasks[index] = { ...tasks[index], ...updates };
+      this.saveToStorage();
+    }
   }
 }
 
