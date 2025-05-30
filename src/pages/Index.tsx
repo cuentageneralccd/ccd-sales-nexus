@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -12,6 +11,9 @@ import { Analytics } from "@/components/Analytics";
 import { SystemMonitor } from "@/components/SystemMonitor";
 import { VicidialConfig } from "@/components/VicidialConfig";
 import { useVicidialStats } from "@/hooks/useVicidialStats";
+import { FinancialDashboard } from "@/components/FinancialDashboard";
+import { AutomationCenter } from "@/components/AutomationCenter";
+import { CommunicationCenter } from "@/components/CommunicationCenter";
 
 const Index = () => {
   const { stats, isLoading } = useVicidialStats();
@@ -94,11 +96,14 @@ const Index = () => {
 
         {/* Main Content Tabs */}
         <Tabs defaultValue="callcenter" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-6">
+          <TabsList className="grid w-full grid-cols-9">
             <TabsTrigger value="callcenter">Call Center</TabsTrigger>
             <TabsTrigger value="leads">Leads</TabsTrigger>
             <TabsTrigger value="campaigns">Campañas</TabsTrigger>
             <TabsTrigger value="analytics">Analytics</TabsTrigger>
+            <TabsTrigger value="automation">Automatización</TabsTrigger>
+            <TabsTrigger value="communication">Comunicación</TabsTrigger>
+            <TabsTrigger value="financial">Financiero</TabsTrigger>
             <TabsTrigger value="monitor">Monitor</TabsTrigger>
             <TabsTrigger value="config">Config</TabsTrigger>
           </TabsList>
@@ -117,6 +122,18 @@ const Index = () => {
 
           <TabsContent value="analytics">
             <Analytics />
+          </TabsContent>
+
+          <TabsContent value="automation">
+            <AutomationCenter />
+          </TabsContent>
+
+          <TabsContent value="communication">
+            <CommunicationCenter />
+          </TabsContent>
+
+          <TabsContent value="financial">
+            <FinancialDashboard />
           </TabsContent>
 
           <TabsContent value="monitor">
