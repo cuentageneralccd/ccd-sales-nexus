@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,150 +8,131 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Users, Plus, Search, Phone, Edit, Trash2, Calendar } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
-
-interface Lead {
-  id: string;
-  vendorLeadCode: string;
-  firstName: string;
-  lastName: string;
-  phoneNumber: string;
-  email: string;
-  status: string;
-  source: string;
-  entryDate: string;
-  lastCallDate?: string;
-  callCount: number;
-  comments: string;
-  priority: number;
-}
+import { Users, Plus, Search, Phone, Edit, Trash2, Calendar, TrendingUp, AlertCircle } from "lucide-react";
+import { useLeads } from "@/hooks/useLeads";
 
 export const LeadsManager = () => {
-  const [leads, setLeads] = useState<Lead[]>([]);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
-  const [isAddLeadOpen, setIsAddLeadOpen] = useState(false);
-  const [newLead, setNewLead] = useState<Partial<Lead>>({});
-  const { toast } = useToast();
+  const { 
+    leads, 
+    isLoading, 
+    filters, 
+    setFilters, 
+    addLead, 
+    updateLead, 
+    callLead,
+    getLeadsByStatus,
+    getLeadsBySource,
+    getHighPriorityLeads
+  } = useLeads();
 
-  useEffect(() => {
-    // Simular carga de leads desde Vicidial
-    const mockLeads: Lead[] = [
-      {
-        id: "1",
-        vendorLeadCode: "CRM_001",
-        firstName: "Roberto",
-        lastName: "Silva",
-        phoneNumber: "+1-555-0123",
-        email: "roberto.silva@email.com",
-        status: "NEW",
-        source: "Website",
-        entryDate: "2025-05-30",
-        callCount: 0,
-        comments: "Lead generado desde formulario web",
-        priority: 5
-      },
-      {
-        id: "2",
-        vendorLeadCode: "CRM_002",
-        firstName: "Ana",
-        lastName: "Martínez",
-        phoneNumber: "+1-555-0456",
-        email: "ana.martinez@email.com",
-        status: "CALLBACK",
-        source: "Campaign",
-        entryDate: "2025-05-29",
-        lastCallDate: "2025-05-30",
-        callCount: 2,
-        comments: "Interesada, solicita llamar mañana",
-        priority: 8
-      }
-    ];
-    setLeads(mockLeads);
-  }, []);
+  const [isAddLeadOpen, setIsAddLeadOpen] = useState(false);
+  const [newLead, setNewLead] = useState<any>({});
+  const [selectedLead, setSelectedLead] = useState<any>(null);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
 
   const handleAddLead = async () => {
     if (!newLead.firstName || !newLead.lastName || !newLead.phoneNumber) {
-      toast({
-        title: "Error",
-        description: "Por favor completa los campos requeridos",
-        variant: "destructive",
-      });
       return;
     }
 
-    const lead: Lead = {
-      id: Date.now().toString(),
-      vendorLeadCode: `CRM_${Date.now()}`,
-      firstName: newLead.firstName || "",
-      lastName: newLead.lastName || "",
-      phoneNumber: newLead.phoneNumber || "",
-      email: newLead.email || "",
-      status: "NEW",
-      source: newLead.source || "Manual",
-      entryDate: new Date().toISOString().split('T')[0],
-      callCount: 0,
-      comments: newLead.comments || "",
-      priority: newLead.priority || 5
-    };
-
-    // Simular sincronización con Vicidial
-    console.log("Sincronizando lead con Vicidial:", lead);
-    
-    setLeads(prev => [lead, ...prev]);
+    await addLead(newLead);
     setNewLead({});
     setIsAddLeadOpen(false);
-    
-    toast({
-      title: "Lead Agregado",
-      description: "Lead sincronizado exitosamente con Vicidial",
-    });
   };
 
-  const handleCall = (lead: Lead) => {
-    console.log("Iniciando llamada a:", lead.phoneNumber);
-    toast({
-      title: "Llamada Iniciada",
-      description: `Marcando a ${lead.firstName} ${lead.lastName}`,
-    });
+  const handleEditLead = async (updates: any) => {
+    if (selectedLead) {
+      await updateLead(selectedLead.id, updates);
+      setIsEditDialogOpen(false);
+      setSelectedLead(null);
+    }
+  };
+
+  const handleCallLead = async (lead: any) => {
+    await callLead(lead);
   };
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'NEW':
-        return 'bg-blue-500';
-      case 'CALLBACK':
-        return 'bg-yellow-500';
-      case 'SALE':
-        return 'bg-green-500';
-      case 'NOT_INTERESTED':
-        return 'bg-red-500';
-      default:
-        return 'bg-gray-500';
+      case 'NEW': return 'bg-blue-500';
+      case 'CONTACTED': return 'bg-purple-500';
+      case 'CALLBACK': return 'bg-yellow-500';
+      case 'SALE': return 'bg-green-500';
+      case 'NOT_INTERESTED': return 'bg-red-500';
+      default: return 'bg-gray-500';
     }
   };
 
-  const filteredLeads = leads.filter(lead => {
-    const matchesSearch = 
-      lead.firstName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      lead.lastName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      lead.phoneNumber.includes(searchTerm) ||
-      lead.email.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    const matchesStatus = statusFilter === "all" || lead.status === statusFilter;
-    
-    return matchesSearch && matchesStatus;
-  });
+  const getPriorityColor = (priority: number) => {
+    if (priority >= 8) return 'text-red-600 font-bold';
+    if (priority >= 6) return 'text-orange-600 font-medium';
+    return 'text-gray-600';
+  };
+
+  const statusStats = getLeadsByStatus();
+  const sourceStats = getLeadsBySource();
+  const highPriorityLeads = getHighPriorityLeads();
 
   return (
     <div className="space-y-6">
+      {/* KPIs de Leads */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600">Total Leads</p>
+                <p className="text-2xl font-bold">{leads.length}</p>
+              </div>
+              <Users className="h-8 w-8 text-blue-500" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600">Nuevos Hoy</p>
+                <p className="text-2xl font-bold">{statusStats.NEW || 0}</p>
+              </div>
+              <TrendingUp className="h-8 w-8 text-green-500" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600">Ventas</p>
+                <p className="text-2xl font-bold">{statusStats.SALE || 0}</p>
+              </div>
+              <Phone className="h-8 w-8 text-purple-500" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600">Alta Prioridad</p>
+                <p className="text-2xl font-bold">{highPriorityLeads.length}</p>
+              </div>
+              <AlertCircle className="h-8 w-8 text-red-500" />
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center justify-between">
             <div className="flex items-center">
               <Users className="h-5 w-5 mr-2" />
               Gestión de Leads ({leads.length})
+              {isLoading && <span className="ml-2 text-sm text-gray-500">Sincronizando...</span>}
             </div>
             <Dialog open={isAddLeadOpen} onOpenChange={setIsAddLeadOpen}>
               <DialogTrigger asChild>
@@ -210,12 +191,26 @@ export const LeadsManager = () => {
                         <SelectValue placeholder="Seleccionar fuente" />
                       </SelectTrigger>
                       <SelectContent>
+                        <SelectItem value="Meta Ads">Meta Ads</SelectItem>
+                        <SelectItem value="Google Ads">Google Ads</SelectItem>
+                        <SelectItem value="TikTok Ads">TikTok Ads</SelectItem>
                         <SelectItem value="Website">Website</SelectItem>
-                        <SelectItem value="Campaign">Campaña</SelectItem>
-                        <SelectItem value="Referral">Referido</SelectItem>
+                        <SelectItem value="Referido">Referido</SelectItem>
                         <SelectItem value="Manual">Manual</SelectItem>
                       </SelectContent>
                     </Select>
+                  </div>
+                  
+                  <div>
+                    <Label htmlFor="priority">Prioridad (1-10)</Label>
+                    <Input
+                      id="priority"
+                      type="number"
+                      min="1"
+                      max="10"
+                      value={newLead.priority || 5}
+                      onChange={(e) => setNewLead({...newLead, priority: parseInt(e.target.value)})}
+                    />
                   </div>
                   
                   <div>
@@ -227,8 +222,8 @@ export const LeadsManager = () => {
                     />
                   </div>
                   
-                  <Button onClick={handleAddLead} className="w-full">
-                    Agregar Lead
+                  <Button onClick={handleAddLead} className="w-full" disabled={isLoading}>
+                    {isLoading ? "Agregando..." : "Agregar Lead"}
                   </Button>
                 </div>
               </DialogContent>
@@ -236,60 +231,87 @@ export const LeadsManager = () => {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          {/* Filtros */}
-          <div className="flex space-x-4 mb-6">
-            <div className="flex-1">
+          {/* Filtros Avanzados */}
+          <div className="flex flex-wrap gap-4 mb-6">
+            <div className="flex-1 min-w-64">
               <Input
-                placeholder="Buscar leads..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder="Buscar por nombre, teléfono o email..."
+                value={filters.search}
+                onChange={(e) => setFilters({...filters, search: e.target.value})}
                 className="w-full"
               />
             </div>
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <Select value={filters.status} onValueChange={(value) => setFilters({...filters, status: value})}>
               <SelectTrigger className="w-48">
                 <SelectValue placeholder="Filtrar por estado" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Todos</SelectItem>
-                <SelectItem value="NEW">Nuevo</SelectItem>
-                <SelectItem value="CALLBACK">Callback</SelectItem>
-                <SelectItem value="SALE">Venta</SelectItem>
-                <SelectItem value="NOT_INTERESTED">No Interesado</SelectItem>
+                <SelectItem value="all">Todos los Estados</SelectItem>
+                <SelectItem value="NEW">Nuevos</SelectItem>
+                <SelectItem value="CONTACTED">Contactados</SelectItem>
+                <SelectItem value="CALLBACK">Callbacks</SelectItem>
+                <SelectItem value="SALE">Ventas</SelectItem>
+                <SelectItem value="NOT_INTERESTED">No Interesados</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={filters.source} onValueChange={(value) => setFilters({...filters, source: value})}>
+              <SelectTrigger className="w-48">
+                <SelectValue placeholder="Filtrar por fuente" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="">Todas las Fuentes</SelectItem>
+                <SelectItem value="Meta Ads">Meta Ads</SelectItem>
+                <SelectItem value="Google Ads">Google Ads</SelectItem>
+                <SelectItem value="TikTok Ads">TikTok Ads</SelectItem>
+                <SelectItem value="Website">Website</SelectItem>
+                <SelectItem value="Referido">Referido</SelectItem>
               </SelectContent>
             </Select>
           </div>
 
-          {/* Lista de Leads */}
+          {/* Lista de Leads Mejorada */}
           <div className="space-y-3">
-            {filteredLeads.map((lead) => (
+            {leads.map((lead) => (
               <div
                 key={lead.id}
-                className="p-4 border rounded-lg hover:shadow-md transition-shadow"
+                className="p-4 border rounded-lg hover:shadow-md transition-shadow bg-white"
               >
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center space-x-4">
                     <div>
-                      <p className="font-medium">
-                        {lead.firstName} {lead.lastName}
-                      </p>
+                      <div className="flex items-center space-x-2">
+                        <p className="font-medium text-lg">
+                          {lead.firstName} {lead.lastName}
+                        </p>
+                        <Badge className={`${getStatusColor(lead.status)} text-white text-xs`}>
+                          {lead.status}
+                        </Badge>
+                        <span className={`text-sm ${getPriorityColor(lead.priority)}`}>
+                          Prioridad: {lead.priority}
+                        </span>
+                      </div>
                       <p className="text-sm text-gray-600">{lead.phoneNumber}</p>
                       <p className="text-xs text-gray-500">{lead.email}</p>
                     </div>
-                    <Badge className={`${getStatusColor(lead.status)} text-white`}>
-                      {lead.status}
-                    </Badge>
                   </div>
                   
                   <div className="flex space-x-2">
                     <Button 
                       size="sm" 
-                      onClick={() => handleCall(lead)}
+                      onClick={() => handleCallLead(lead)}
                       className="bg-green-600 hover:bg-green-700"
+                      disabled={isLoading}
                     >
                       <Phone className="h-4 w-4" />
                     </Button>
-                    <Button size="sm" variant="outline">
+                    <Button 
+                      size="sm" 
+                      variant="outline"
+                      onClick={() => {
+                        setSelectedLead(lead);
+                        setIsEditDialogOpen(true);
+                      }}
+                    >
                       <Edit className="h-4 w-4" />
                     </Button>
                     <Button size="sm" variant="outline">
@@ -298,24 +320,103 @@ export const LeadsManager = () => {
                   </div>
                 </div>
                 
-                <div className="text-sm text-gray-600">
-                  <div className="flex items-center justify-between">
-                    <div className="flex space-x-4">
-                      <span>Fuente: {lead.source}</span>
-                      <span>Llamadas: {lead.callCount}</span>
-                      <span>Prioridad: {lead.priority}/10</span>
-                    </div>
-                    <span>Creado: {lead.entryDate}</span>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm text-gray-600">
+                  <div>
+                    <span className="font-medium">Fuente:</span> {lead.source}
                   </div>
-                  {lead.comments && (
-                    <p className="mt-2 italic">"{lead.comments}"</p>
-                  )}
+                  <div>
+                    <span className="font-medium">Llamadas:</span> {lead.callCount}
+                  </div>
+                  <div>
+                    <span className="font-medium">Score:</span> {lead.score}/100
+                  </div>
+                  <div>
+                    <span className="font-medium">Creado:</span> {lead.entryDate}
+                  </div>
                 </div>
+                
+                {lead.comments && (
+                  <div className="mt-3 p-2 bg-gray-50 rounded text-sm italic">
+                    "{lead.comments}"
+                  </div>
+                )}
+                
+                {lead.lastCallDate && (
+                  <div className="mt-2 text-xs text-gray-500">
+                    Última llamada: {lead.lastCallDate}
+                  </div>
+                )}
               </div>
             ))}
           </div>
+
+          {leads.length === 0 && (
+            <div className="text-center py-8 text-gray-500">
+              <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
+              <p>No se encontraron leads con los filtros aplicados</p>
+            </div>
+          )}
         </CardContent>
       </Card>
+
+      {/* Dialog de Edición */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Editar Lead</DialogTitle>
+          </DialogHeader>
+          {selectedLead && (
+            <div className="space-y-4">
+              <div>
+                <Label>Estado</Label>
+                <Select 
+                  value={selectedLead.status} 
+                  onValueChange={(value) => setSelectedLead({...selectedLead, status: value})}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="NEW">Nuevo</SelectItem>
+                    <SelectItem value="CONTACTED">Contactado</SelectItem>
+                    <SelectItem value="CALLBACK">Callback</SelectItem>
+                    <SelectItem value="SALE">Venta</SelectItem>
+                    <SelectItem value="NOT_INTERESTED">No Interesado</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div>
+                <Label>Comentarios</Label>
+                <Textarea
+                  value={selectedLead.comments || ""}
+                  onChange={(e) => setSelectedLead({...selectedLead, comments: e.target.value})}
+                  placeholder="Agregar comentarios sobre el lead..."
+                />
+              </div>
+              
+              <div>
+                <Label>Prioridad (1-10)</Label>
+                <Input
+                  type="number"
+                  min="1"
+                  max="10"
+                  value={selectedLead.priority || 5}
+                  onChange={(e) => setSelectedLead({...selectedLead, priority: parseInt(e.target.value)})}
+                />
+              </div>
+              
+              <Button 
+                onClick={() => handleEditLead(selectedLead)} 
+                className="w-full"
+                disabled={isLoading}
+              >
+                {isLoading ? "Guardando..." : "Guardar Cambios"}
+              </Button>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
