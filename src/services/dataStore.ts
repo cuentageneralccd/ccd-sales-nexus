@@ -1,339 +1,367 @@
-// Store de datos local con persistencia
-interface DataStore {
+
+import { VicidialLead, VicidialAgent } from './vicidialService';
+
+interface LocalDataStore {
   leads: any[];
   campaigns: any[];
-  agents: any[];
-  calls: any[];
-  templates: any[];
-  financialData: any;
-  settings: any;
   advisorMetrics: any[];
-  leadClassifications: any[];
   qualityReviews: any[];
+  leadClassifications: any[];
   followUpTasks: any[];
+  agents: any[];
+  promotions: any[];
+  campaignOrigins: any[];
+  contactHistory: any[];
 }
 
-class LocalDataStore {
-  private storageKey = 'ccd-crm-data';
-  private data: DataStore;
-
-  constructor() {
-    this.data = this.loadFromStorage();
-    this.initializeDefaultData();
-  }
-
-  private loadFromStorage(): DataStore {
+class DataStoreService {
+  private storageKey = 'ccd_crm_data';
+  
+  private getStoredData(): LocalDataStore {
     try {
       const stored = localStorage.getItem(this.storageKey);
-      return stored ? JSON.parse(stored) : this.getDefaultData();
-    } catch {
-      return this.getDefaultData();
+      if (stored) {
+        return JSON.parse(stored);
+      }
+    } catch (error) {
+      console.error('Error reading from localStorage:', error);
     }
+    
+    return this.getDefaultData();
   }
 
-  private saveToStorage(): void {
+  private saveData(data: LocalDataStore): void {
     try {
-      localStorage.setItem(this.storageKey, JSON.stringify(this.data));
+      localStorage.setItem(this.storageKey, JSON.stringify(data));
     } catch (error) {
       console.error('Error saving to localStorage:', error);
     }
   }
 
-  private getDefaultData(): DataStore {
+  private getDefaultData(): LocalDataStore {
     return {
-      leads: [],
-      campaigns: [],
-      agents: [],
-      calls: [],
-      templates: [],
-      financialData: {
-        totalRevenue: 0,
-        monthlyGrowth: 0,
-        costPerLead: 0,
-        roi: 0
-      },
-      settings: {
-        autoAssignment: true,
-        callRecording: true,
-        smsNotifications: true
-      },
-      advisorMetrics: [],
-      leadClassifications: [],
+      leads: this.generateSampleLeads(),
+      campaigns: this.generateSampleCampaigns(),
+      advisorMetrics: this.generateSampleAdvisorMetrics(),
       qualityReviews: [],
-      followUpTasks: []
+      leadClassifications: [],
+      followUpTasks: [],
+      agents: this.generateSampleAgents(),
+      promotions: this.generateSamplePromotions(),
+      campaignOrigins: this.generateSampleCampaignOrigins(),
+      contactHistory: []
     };
   }
 
-  private initializeDefaultData(): void {
-    if (this.data.leads.length === 0) {
-      this.data.leads = this.generateSampleLeads();
+  // Leads management
+  getLeads(filters: any = {}): any[] {
+    const data = this.getStoredData();
+    let leads = data.leads;
+
+    if (filters.status && filters.status !== 'all') {
+      leads = leads.filter((lead: any) => lead.status === filters.status);
     }
-    if (this.data.campaigns.length === 0) {
-      this.data.campaigns = this.generateSampleCampaigns();
+
+    if (filters.source) {
+      leads = leads.filter((lead: any) => lead.source === filters.source);
     }
-    if (this.data.agents.length === 0) {
-      this.data.agents = this.generateSampleAgents();
+
+    if (filters.search) {
+      const search = filters.search.toLowerCase();
+      leads = leads.filter((lead: any) => 
+        lead.firstName?.toLowerCase().includes(search) ||
+        lead.lastName?.toLowerCase().includes(search) ||
+        lead.phoneNumber?.includes(search) ||
+        lead.email?.toLowerCase().includes(search)
+      );
+    }
+
+    return leads;
+  }
+
+  addLead(leadData: any): void {
+    const data = this.getStoredData();
+    const newLead = {
+      id: `lead_${Date.now()}`,
+      entryDate: new Date().toISOString(),
+      callCount: 0,
+      score: 50,
+      ...leadData
+    };
+    
+    data.leads.push(newLead);
+    this.saveData(data);
+  }
+
+  updateLead(id: string, updates: any): void {
+    const data = this.getStoredData();
+    const index = data.leads.findIndex((lead: any) => lead.id === id);
+    
+    if (index !== -1) {
+      data.leads[index] = { ...data.leads[index], ...updates };
+      this.saveData(data);
+    }
+  }
+
+  // Campaigns management
+  getCampaigns(): any[] {
+    const data = this.getStoredData();
+    return data.campaigns;
+  }
+
+  addCampaign(campaignData: any): void {
+    const data = this.getStoredData();
+    const newCampaign = {
+      id: `campaign_${Date.now()}`,
+      ...campaignData
+    };
+    
+    data.campaigns.push(newCampaign);
+    this.saveData(data);
+  }
+
+  updateCampaign(id: string, updates: any): void {
+    const data = this.getStoredData();
+    const index = data.campaigns.findIndex((campaign: any) => campaign.id === id);
+    
+    if (index !== -1) {
+      data.campaigns[index] = { ...data.campaigns[index], ...updates };
+      this.saveData(data);
+    }
+  }
+
+  // Advisor metrics management
+  getAdvisorMetrics(): any[] {
+    const data = this.getStoredData();
+    return data.advisorMetrics;
+  }
+
+  updateAdvisorStatus(advisorId: string, status: string): void {
+    const data = this.getStoredData();
+    const index = data.advisorMetrics.findIndex((advisor: any) => advisor.id === advisorId);
+    
+    if (index !== -1) {
+      data.advisorMetrics[index].status = status;
+      data.advisorMetrics[index].lastActivity = new Date().toISOString();
+      this.saveData(data);
+    }
+  }
+
+  // Quality reviews management
+  getQualityReviews(): any[] {
+    const data = this.getStoredData();
+    return data.qualityReviews;
+  }
+
+  addQualityReview(reviewData: any): void {
+    const data = this.getStoredData();
+    const newReview = {
+      id: `review_${Date.now()}`,
+      date: new Date().toISOString(),
+      ...reviewData
+    };
+    
+    data.qualityReviews.push(newReview);
+    this.saveData(data);
+  }
+
+  // Lead classifications management
+  getLeadClassifications(): any[] {
+    const data = this.getStoredData();
+    return data.leadClassifications;
+  }
+
+  updateLeadClassification(leadId: string, classification: any): void {
+    const data = this.getStoredData();
+    const index = data.leadClassifications.findIndex((c: any) => c.leadId === leadId);
+    
+    if (index !== -1) {
+      data.leadClassifications[index] = { ...data.leadClassifications[index], ...classification };
+    } else {
+      data.leadClassifications.push({
+        id: `classification_${Date.now()}`,
+        leadId,
+        createdAt: new Date().toISOString(),
+        ...classification
+      });
     }
     
-    // Inicializar nuevos datos
-    if (!this.data.advisorMetrics) {
-      this.data.advisorMetrics = this.generateAdvisorMetrics();
-    }
-    if (!this.data.leadClassifications) {
-      this.data.leadClassifications = this.generateLeadClassifications();
-    }
-    if (!this.data.qualityReviews) {
-      this.data.qualityReviews = [];
-    }
-    if (!this.data.followUpTasks) {
-      this.data.followUpTasks = this.generateFollowUpTasks();
-    }
+    this.saveData(data);
+  }
+
+  addLeadObservation(leadId: string, observation: any): void {
+    const data = this.getStoredData();
+    const classification = data.leadClassifications.find((c: any) => c.leadId === leadId);
     
-    this.saveToStorage();
+    if (classification) {
+      if (!classification.observations) {
+        classification.observations = [];
+      }
+      classification.observations.push(observation);
+      this.saveData(data);
+    }
   }
 
-  private generateAdvisorMetrics(): any[] {
-    const names = [
-      'Carlos Mendoza', 'María González', 'Roberto Silva', 'Ana López', 'Jorge Ramírez',
-      'Carmen Torres', 'Pedro Martín', 'Lucía Herrera', 'Diego Ruiz', 'Sofía Castro',
-      'Andrés Morales', 'Gabriela Vega', 'Francisco Delgado', 'Valeria Ramos', 'Miguel Ángel Soto'
-    ];
+  applyPromotion(leadId: string, promotionId: string): void {
+    const data = this.getStoredData();
+    const classification = data.leadClassifications.find((c: any) => c.leadId === leadId);
     
-    const campaigns = ['Prospección Q2 2025', 'Seguimiento Clientes', 'Black Friday', 'Referidos VIP'];
-    const shifts = ['Mañana (08:00-16:00)', 'Tarde (14:00-22:00)', 'Noche (20:00-04:00)'];
-    const statuses = ['ACTIVE', 'BREAK', 'LUNCH', 'TRAINING', 'OFFLINE'];
-
-    return Array.from({ length: 100 }, (_, i) => ({
-      id: `advisor_${String(i + 1).padStart(3, '0')}`,
-      name: names[i % names.length] + ` (${i + 1})`,
-      email: `advisor${i + 1}@ccdcrm.com`,
-      status: statuses[Math.floor(Math.random() * statuses.length)],
-      campaign: campaigns[Math.floor(Math.random() * campaigns.length)],
-      shift: shifts[Math.floor(Math.random() * shifts.length)],
-      
-      // Métricas de llamadas
-      callsToday: Math.floor(Math.random() * 80) + 20,
-      callsWeek: Math.floor(Math.random() * 400) + 100,
-      callsMonth: Math.floor(Math.random() * 1600) + 400,
-      avgCallDuration: Math.floor(Math.random() * 300) + 180, // segundos
-      totalCallTime: Math.floor(Math.random() * 28800) + 7200, // segundos
-      
-      // Métricas de conversión
-      contactsToday: Math.floor(Math.random() * 60) + 15,
-      appointmentsToday: Math.floor(Math.random() * 8) + 2,
-      salesToday: Math.floor(Math.random() * 5) + 1,
-      conversionRate: Math.round((Math.random() * 15 + 5) * 10) / 10,
-      appointmentRate: Math.round((Math.random() * 20 + 10) * 10) / 10,
-      
-      // Métricas de calidad
-      qualityScore: Math.round((Math.random() * 30 + 65) * 10) / 10,
-      customerSatisfaction: Math.round((Math.random() * 20 + 75) * 10) / 10,
-      scriptCompliance: Math.round((Math.random() * 25 + 70) * 10) / 10,
-      objectionHandling: Math.round((Math.random() * 30 + 65) * 10) / 10,
-      
-      // Productividad
-      leadsAssigned: Math.floor(Math.random() * 50) + 20,
-      leadsContacted: Math.floor(Math.random() * 40) + 15,
-      leadsConverted: Math.floor(Math.random() * 8) + 2,
-      avgResponseTime: Math.floor(Math.random() * 300) + 60, // segundos
-      followUpRate: Math.round((Math.random() * 20 + 75) * 10) / 10,
-      
-      // Horarios y asistencia
-      loginTime: new Date(Date.now() - Math.random() * 8 * 60 * 60 * 1000).toISOString(),
-      breakTime: Math.floor(Math.random() * 1800) + 900, // segundos
-      productiveTime: Math.floor(Math.random() * 25200) + 18000, // segundos
-      idleTime: Math.floor(Math.random() * 3600) + 600, // segundos
-      
-      lastActivity: new Date(Date.now() - Math.random() * 60 * 60 * 1000).toISOString(),
-      ranking: i + 1
-    }));
+    if (classification && classification.promotions) {
+      const promotion = classification.promotions.find((p: any) => p.id === promotionId);
+      if (promotion) {
+        promotion.applied = true;
+        promotion.appliedDate = new Date().toISOString();
+        promotion.status = 'APPLIED';
+        this.saveData(data);
+      }
+    }
   }
 
-  private generateLeadClassifications(): any[] {
-    const leadTypes = ['HOT', 'WARM', 'COLD', 'QUALIFIED', 'UNQUALIFIED'];
-    const budgetRanges = ['LOW', 'MEDIUM', 'HIGH', 'PREMIUM'];
-    const timelines = ['IMMEDIATE', 'WEEK', 'MONTH', 'QUARTER', 'LONG_TERM'];
-    const authorities = ['DECISION_MAKER', 'INFLUENCER', 'USER', 'UNKNOWN'];
-    const stages = ['NEW', 'CONTACTED', 'QUALIFIED', 'PRESENTATION', 'PROPOSAL', 'NEGOTIATION', 'CLOSED_WON', 'CLOSED_LOST'];
-
-    return Array.from({ length: 75 }, (_, i) => ({
-      id: `classification_${i + 1}`,
-      leadId: `lead_${i + 1}`,
-      advisorId: `advisor_${String(Math.floor(Math.random() * 100) + 1).padStart(3, '0')}`,
-      
-      leadType: leadTypes[Math.floor(Math.random() * leadTypes.length)],
-      interest_level: Math.floor(Math.random() * 10) + 1,
-      budget_range: budgetRanges[Math.floor(Math.random() * budgetRanges.length)],
-      decision_timeline: timelines[Math.floor(Math.random() * timelines.length)],
-      authority_level: authorities[Math.floor(Math.random() * authorities.length)],
-      
-      currentStage: stages[Math.floor(Math.random() * stages.length)],
-      previousStages: [],
-      stageHistory: [
-        {
-          stage: 'NEW',
-          date: new Date(Date.now() - Math.random() * 30 * 24 * 60 * 60 * 1000).toISOString(),
-          advisorId: `advisor_${String(Math.floor(Math.random() * 100) + 1).padStart(3, '0')}`,
-          duration: Math.floor(Math.random() * 1440), // minutos
-          notes: 'Lead inicial recibido del sistema'
-        }
-      ],
-      
-      observations: this.generateObservations(i + 1),
-      promotions: this.generatePromotions(i + 1),
-      
-      contactAttempts: Math.floor(Math.random() * 8) + 1,
-      lastContactDate: new Date(Date.now() - Math.random() * 7 * 24 * 60 * 60 * 1000).toISOString(),
-      nextContactDate: new Date(Date.now() + Math.random() * 7 * 24 * 60 * 60 * 1000).toISOString(),
-      responseRate: Math.round((Math.random() * 40 + 40) * 10) / 10,
-      engagementScore: Math.round((Math.random() * 50 + 30) * 10) / 10,
-      
-      createdAt: new Date(Date.now() - Math.random() * 30 * 24 * 60 * 60 * 1000).toISOString(),
-      updatedAt: new Date().toISOString()
-    }));
+  // Follow-up tasks management
+  getFollowUpTasks(): any[] {
+    const data = this.getStoredData();
+    return data.followUpTasks;
   }
 
-  private generateObservations(leadIndex: number): any[] {
-    const types = ['CALL', 'EMAIL', 'MEETING', 'NOTE', 'TASK'];
-    const priorities = ['LOW', 'MEDIUM', 'HIGH', 'URGENT'];
-    const contents = [
-      'Cliente interesado en el producto premium',
-      'Solicitó información adicional sobre precios',
-      'Reunión programada para la próxima semana',
-      'Cliente con dudas sobre la implementación',
-      'Seguimiento post-demo muy positivo',
-      'Necesita aprobación del presupuesto',
-      'Compartió información con el equipo',
-      'Solicita referencias de otros clientes'
-    ];
-
-    const numObservations = Math.floor(Math.random() * 5) + 1;
-    return Array.from({ length: numObservations }, (_, i) => ({
-      id: `obs_${leadIndex}_${i + 1}`,
-      date: new Date(Date.now() - Math.random() * 14 * 24 * 60 * 60 * 1000).toISOString(),
-      advisorId: `advisor_${String(Math.floor(Math.random() * 100) + 1).padStart(3, '0')}`,
-      type: types[Math.floor(Math.random() * types.length)],
-      content: contents[Math.floor(Math.random() * contents.length)],
-      priority: priorities[Math.floor(Math.random() * priorities.length)],
-      followUpDate: Math.random() > 0.5 ? new Date(Date.now() + Math.random() * 7 * 24 * 60 * 60 * 1000).toISOString() : undefined,
-      completed: Math.random() > 0.3
-    }));
+  addFollowUpTask(task: any): void {
+    const data = this.getStoredData();
+    data.followUpTasks.push(task);
+    this.saveData(data);
   }
 
-  private generatePromotions(leadIndex: number): any[] {
-    const promotions = [
-      { name: 'Descuento Lanzamiento', description: 'Descuento especial por ser cliente nuevo', discount: 15 },
-      { name: 'Black Friday', description: 'Oferta limitada de fin de año', discount: 25 },
-      { name: 'Upgrade Gratuito', description: 'Upgrade sin costo adicional', discount: 10 },
-      { name: 'Paquete Premium', description: 'Acceso completo por 3 meses', discount: 20 }
-    ];
-
-    if (Math.random() > 0.6) return []; // 40% de leads sin promociones
-
-    const numPromotions = Math.floor(Math.random() * 2) + 1;
-    return Array.from({ length: numPromotions }, (_, i) => {
-      const promo = promotions[Math.floor(Math.random() * promotions.length)];
-      return {
-        id: `promo_${leadIndex}_${i + 1}`,
-        ...promo,
-        validUntil: new Date(Date.now() + Math.random() * 30 * 24 * 60 * 60 * 1000).toISOString(),
-        applied: Math.random() > 0.7,
-        appliedDate: Math.random() > 0.5 ? new Date(Date.now() - Math.random() * 7 * 24 * 60 * 60 * 1000).toISOString() : undefined,
-        status: ['PENDING', 'ACCEPTED', 'REJECTED', 'EXPIRED'][Math.floor(Math.random() * 4)]
-      };
-    });
+  // Agents management
+  getAgents(): any[] {
+    const data = this.getStoredData();
+    return data.agents;
   }
 
-  private generateFollowUpTasks(): any[] {
-    const types = ['CALL', 'EMAIL', 'MEETING', 'QUOTE', 'PRESENTATION'];
-    const priorities = ['LOW', 'MEDIUM', 'HIGH', 'URGENT'];
-    const statuses = ['PENDING', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED'];
-    
-    const titles = [
-      'Llamada de seguimiento',
-      'Enviar propuesta comercial',
-      'Reunión de presentación',
-      'Cotización personalizada',
-      'Demo del producto',
-      'Seguimiento post-reunión',
-      'Aclarar dudas técnicas',
-      'Negociación final'
-    ];
-
-    return Array.from({ length: 50 }, (_, i) => ({
-      id: `task_${i + 1}`,
-      leadId: `lead_${Math.floor(Math.random() * 75) + 1}`,
-      advisorId: `advisor_${String(Math.floor(Math.random() * 100) + 1).padStart(3, '0')}`,
-      type: types[Math.floor(Math.random() * types.length)],
-      title: titles[Math.floor(Math.random() * titles.length)],
-      description: 'Tarea generada automáticamente para seguimiento del lead',
-      scheduledDate: new Date(Date.now() + (Math.random() - 0.5) * 14 * 24 * 60 * 60 * 1000).toISOString(),
-      priority: priorities[Math.floor(Math.random() * priorities.length)],
-      status: statuses[Math.floor(Math.random() * statuses.length)],
-      completedDate: Math.random() > 0.6 ? new Date(Date.now() - Math.random() * 7 * 24 * 60 * 60 * 1000).toISOString() : undefined,
-      result: Math.random() > 0.7 ? 'Tarea completada exitosamente' : undefined,
-      nextAction: Math.random() > 0.8 ? 'Programar siguiente seguimiento' : undefined
-    }));
-  }
-
+  // Sample data generators
   private generateSampleLeads(): any[] {
-    const sources = ['Meta Ads', 'Google Ads', 'TikTok Ads', 'Website', 'Referido'];
-    const statuses = ['NEW', 'CONTACTED', 'CALLBACK', 'SALE', 'NOT_INTERESTED'];
-    const firstNames = ['Roberto', 'Ana', 'Carlos', 'María', 'Jorge', 'Lucía', 'Pedro', 'Carmen'];
-    const lastNames = ['Silva', 'Martínez', 'González', 'López', 'Rodríguez', 'Fernández'];
-
-    return Array.from({ length: 150 }, (_, i) => ({
-      id: `lead_${i + 1}`,
-      vendorLeadCode: `CRM_${1000 + i}`,
-      firstName: firstNames[Math.floor(Math.random() * firstNames.length)],
-      lastName: lastNames[Math.floor(Math.random() * lastNames.length)],
-      phoneNumber: `+1-555-${String(Math.floor(Math.random() * 10000)).padStart(4, '0')}`,
-      email: `lead${i + 1}@example.com`,
-      status: statuses[Math.floor(Math.random() * statuses.length)],
-      source: sources[Math.floor(Math.random() * sources.length)],
-      entryDate: new Date(Date.now() - Math.random() * 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-      lastCallDate: Math.random() > 0.5 ? new Date(Date.now() - Math.random() * 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0] : undefined,
-      callCount: Math.floor(Math.random() * 5),
-      comments: `Lead generado desde ${sources[Math.floor(Math.random() * sources.length)]}`,
-      priority: Math.floor(Math.random() * 10) + 1,
-      score: Math.floor(Math.random() * 100),
-      assignedAgent: `agent_${Math.floor(Math.random() * 5) + 1}`
-    }));
+    return [
+      {
+        id: 'lead_001',
+        vendorLeadCode: 'FB_VIDA_2024_001',
+        firstName: 'Juan',
+        lastName: 'Pérez',
+        phoneNumber: '3001234567',
+        email: 'juan.perez@email.com',
+        status: 'CALLBACK',
+        source: 'FACEBOOK',
+        entryDate: '2024-01-15T10:30:00Z',
+        lastCallDate: '2024-01-15',
+        callCount: 2,
+        comments: 'Interesado en seguro de vida, tiene 2 hijos menores',
+        priority: 8,
+        score: 85,
+        assignedAgent: 'asesor1'
+      },
+      {
+        id: 'lead_002',
+        vendorLeadCode: 'GOOG_AUTO_2024_001',
+        firstName: 'María',
+        lastName: 'García',
+        phoneNumber: '3109876543',
+        email: 'maria.garcia@email.com',
+        status: 'NEW',
+        source: 'GOOGLE',
+        entryDate: '2024-01-16T09:15:00Z',
+        callCount: 0,
+        comments: 'Busca seguro para vehículo nuevo',
+        priority: 6,
+        score: 65,
+        assignedAgent: 'asesor2'
+      }
+    ];
   }
 
   private generateSampleCampaigns(): any[] {
     return [
       {
-        id: 'camp_001',
-        name: 'Prospección Q2 2025',
-        description: 'Campaña principal de prospección',
+        id: 'campaign_001',
+        name: 'Ventas Premium',
+        description: 'Campaña de seguros premium',
         status: 'ACTIVE',
-        listId: '1001',
+        listId: '101',
         dialMethod: 'RATIO',
         maxRatio: 2.5,
-        totalLeads: 2500,
-        contactedLeads: 1250,
-        successfulCalls: 375,
-        startDate: '2025-05-01',
+        totalLeads: 1500,
+        contactedLeads: 850,
+        successfulCalls: 125,
+        startDate: '2024-01-01',
         agentsAssigned: 8,
-        priority: 8,
-        conversionRate: 15.2
+        priority: 1,
+        conversionRate: 14.7
+      }
+    ];
+  }
+
+  private generateSampleAdvisorMetrics(): any[] {
+    return [
+      {
+        id: 'asesor1',
+        name: 'María González',
+        email: 'maria.gonzalez@ccd.com',
+        status: 'ACTIVE',
+        campaign: 'Ventas Premium',
+        shift: '08:00-17:00',
+        callsToday: 45,
+        callsWeek: 220,
+        callsMonth: 950,
+        avgCallDuration: 280,
+        totalCallTime: 12600,
+        contactsToday: 28,
+        appointmentsToday: 8,
+        salesToday: 3,
+        conversionRate: 10.7,
+        appointmentRate: 28.6,
+        qualityScore: 87,
+        customerSatisfaction: 4.2,
+        scriptCompliance: 92,
+        objectionHandling: 85,
+        leadsAssigned: 75,
+        leadsContacted: 65,
+        leadsConverted: 7,
+        avgResponseTime: 45,
+        followUpRate: 89,
+        loginTime: '08:00:00',
+        breakTime: 1800,
+        productiveTime: 25200,
+        idleTime: 900,
+        lastActivity: new Date().toISOString(),
+        ranking: 3
       },
       {
-        id: 'camp_002',
-        name: 'Seguimiento Clientes',
-        description: 'Campaña de seguimiento post-venta',
+        id: 'asesor2',
+        name: 'Carlos Rodríguez',
+        email: 'carlos.rodriguez@ccd.com',
         status: 'ACTIVE',
-        listId: '1002',
-        dialMethod: 'MANUAL',
-        maxRatio: 1.0,
-        totalLeads: 800,
-        contactedLeads: 600,
-        successfulCalls: 180,
-        startDate: '2025-05-15',
-        agentsAssigned: 5,
-        priority: 6,
-        conversionRate: 22.5
+        campaign: 'Ventas Premium',
+        shift: '09:00-18:00',
+        callsToday: 38,
+        callsWeek: 185,
+        callsMonth: 820,
+        avgCallDuration: 245,
+        totalCallTime: 9310,
+        contactsToday: 22,
+        appointmentsToday: 5,
+        salesToday: 2,
+        conversionRate: 9.1,
+        appointmentRate: 22.7,
+        qualityScore: 78,
+        customerSatisfaction: 3.8,
+        scriptCompliance: 88,
+        objectionHandling: 75,
+        leadsAssigned: 68,
+        leadsContacted: 58,
+        leadsConverted: 5,
+        avgResponseTime: 52,
+        followUpRate: 76,
+        loginTime: '09:00:00',
+        breakTime: 2100,
+        productiveTime: 23400,
+        idleTime: 1500,
+        lastActivity: new Date().toISOString(),
+        ranking: 7
       }
     ];
   }
@@ -341,252 +369,69 @@ class LocalDataStore {
   private generateSampleAgents(): any[] {
     return [
       {
-        id: 'agent_001',
-        name: 'Carlos Mendoza',
+        user: 'asesor1',
+        fullName: 'María González',
         status: 'READY',
-        phone: 'SIP/1001',
-        campaign: 'camp_001',
+        campaignId: 'VENTAS_PREMIUM',
         callsToday: 45,
         salesToday: 3,
-        avgCallTime: 320,
-        lastActivity: new Date().toISOString()
+        avgCallTime: 280
       },
       {
-        id: 'agent_002',
-        name: 'María González',
+        user: 'asesor2',
+        fullName: 'Carlos Rodríguez',
         status: 'INCALL',
-        phone: 'SIP/1002',
-        campaign: 'camp_001',
+        campaignId: 'VENTAS_PREMIUM',
         callsToday: 38,
-        salesToday: 5,
-        avgCallTime: 285,
-        lastActivity: new Date().toISOString()
-      },
-      {
-        id: 'agent_003',
-        name: 'Roberto Silva',
-        status: 'PAUSED',
-        phone: 'SIP/1003',
-        campaign: 'camp_002',
-        callsToday: 22,
         salesToday: 2,
-        avgCallTime: 410,
-        lastActivity: new Date(Date.now() - 300000).toISOString()
+        avgCallTime: 245
       }
     ];
   }
 
-  // Métodos públicos para acceso a datos
-  getLeads(filters?: any): any[] {
-    let leads = [...this.data.leads];
-    
-    if (filters?.status && filters.status !== 'all') {
-      leads = leads.filter(lead => lead.status === filters.status);
-    }
-    
-    if (filters?.source) {
-      leads = leads.filter(lead => lead.source === filters.source);
-    }
-    
-    if (filters?.search) {
-      const search = filters.search.toLowerCase();
-      leads = leads.filter(lead => 
-        lead.firstName.toLowerCase().includes(search) ||
-        lead.lastName.toLowerCase().includes(search) ||
-        lead.phoneNumber.includes(search) ||
-        lead.email.toLowerCase().includes(search)
-      );
-    }
-    
-    return leads.sort((a, b) => new Date(b.entryDate).getTime() - new Date(a.entryDate).getTime());
-  }
-
-  addLead(lead: any): void {
-    const newLead = {
-      ...lead,
-      id: `lead_${Date.now()}`,
-      vendorLeadCode: `CRM_${Date.now()}`,
-      entryDate: new Date().toISOString().split('T')[0],
-      callCount: 0,
-      score: Math.floor(Math.random() * 100),
-      assignedAgent: this.getAvailableAgent()
-    };
-    
-    this.data.leads.unshift(newLead);
-    this.saveToStorage();
-  }
-
-  updateLead(id: string, updates: any): void {
-    const index = this.data.leads.findIndex(lead => lead.id === id);
-    if (index !== -1) {
-      this.data.leads[index] = { ...this.data.leads[index], ...updates };
-      this.saveToStorage();
-    }
-  }
-
-  getCampaigns(): any[] {
-    return [...this.data.campaigns];
-  }
-
-  addCampaign(campaign: any): void {
-    const newCampaign = {
-      ...campaign,
-      id: `camp_${Date.now()}`,
-      totalLeads: 0,
-      contactedLeads: 0,
-      successfulCalls: 0,
-      conversionRate: 0
-    };
-    
-    this.data.campaigns.unshift(newCampaign);
-    this.saveToStorage();
-  }
-
-  updateCampaign(id: string, updates: any): void {
-    const index = this.data.campaigns.findIndex(campaign => campaign.id === id);
-    if (index !== -1) {
-      this.data.campaigns[index] = { ...this.data.campaigns[index], ...updates };
-      this.saveToStorage();
-    }
-  }
-
-  getAgents(): any[] {
-    return [...this.data.agents];
-  }
-
-  getAvailableAgent(): string {
-    const availableAgents = this.data.agents.filter(agent => 
-      agent.status === 'READY' || agent.status === 'PAUSED'
-    );
-    
-    if (availableAgents.length > 0) {
-      return availableAgents[0].id;
-    }
-    
-    return this.data.agents[0]?.id || 'agent_001';
-  }
-
-  getFinancialData(): any {
-    return { ...this.data.financialData };
-  }
-
-  updateFinancialData(data: any): void {
-    this.data.financialData = { ...this.data.financialData, ...data };
-    this.saveToStorage();
-  }
-
-  // Métodos para advisor metrics
-  getAdvisorMetrics(): any[] {
-    return [...(this.data.advisorMetrics || [])];
-  }
-
-  updateAdvisorStatus(advisorId: string, status: string): void {
-    const advisors = this.data.advisorMetrics || [];
-    const index = advisors.findIndex(advisor => advisor.id === advisorId);
-    if (index !== -1) {
-      advisors[index].status = status;
-      advisors[index].lastActivity = new Date().toISOString();
-      this.saveToStorage();
-    }
-  }
-
-  addQualityReview(review: any): void {
-    if (!this.data.qualityReviews) {
-      this.data.qualityReviews = [];
-    }
-    
-    const newReview = {
-      ...review,
-      id: `review_${Date.now()}`,
-      date: new Date().toISOString()
-    };
-    
-    this.data.qualityReviews.unshift(newReview);
-    this.saveToStorage();
-  }
-
-  getQualityReviews(): any[] {
-    return [...(this.data.qualityReviews || [])];
-  }
-
-  // Métodos para lead classification
-  getLeadClassifications(): any[] {
-    return [...(this.data.leadClassifications || [])];
-  }
-
-  updateLeadClassification(leadId: string, updates: any): void {
-    const classifications = this.data.leadClassifications || [];
-    const index = classifications.findIndex(c => c.leadId === leadId);
-    
-    if (index !== -1) {
-      classifications[index] = { ...classifications[index], ...updates, updatedAt: new Date().toISOString() };
-    } else {
-      // Crear nueva clasificación
-      const newClassification = {
-        id: `classification_${Date.now()}`,
-        leadId,
-        ...updates,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      };
-      classifications.push(newClassification);
-    }
-    
-    this.saveToStorage();
-  }
-
-  addLeadObservation(leadId: string, observation: any): void {
-    const classifications = this.data.leadClassifications || [];
-    const index = classifications.findIndex(c => c.leadId === leadId);
-    
-    if (index !== -1) {
-      if (!classifications[index].observations) {
-        classifications[index].observations = [];
+  private generateSamplePromotions(): any[] {
+    return [
+      {
+        id: 'PROM001',
+        promotionCode: 'SEGURO_VIDA_50',
+        promotionName: 'Seguro de Vida con 50% de Descuento',
+        description: 'Seguro de vida con cobertura completa y 50% de descuento en la primera anualidad',
+        discountType: 'PERCENTAGE',
+        discountValue: 50,
+        validFrom: '2024-01-01',
+        validUntil: '2024-06-30',
+        targetAudience: ['adultos-jovenes', 'familias', 'profesionales'],
+        requirements: 'Edad entre 25-45 años, ingresos mínimos $2,000,000',
+        maxUsage: 1000,
+        currentUsage: 245,
+        status: 'ACTIVE'
       }
-      classifications[index].observations.push(observation);
-      classifications[index].updatedAt = new Date().toISOString();
-      this.saveToStorage();
-    }
+    ];
   }
 
-  applyPromotion(leadId: string, promotionId: string): void {
-    const classifications = this.data.leadClassifications || [];
-    const index = classifications.findIndex(c => c.leadId === leadId);
-    
-    if (index !== -1 && classifications[index].promotions) {
-      const promoIndex = classifications[index].promotions.findIndex((p: any) => p.id === promotionId);
-      if (promoIndex !== -1) {
-        classifications[index].promotions[promoIndex].applied = true;
-        classifications[index].promotions[promoIndex].appliedDate = new Date().toISOString();
-        classifications[index].promotions[promoIndex].status = 'ACCEPTED';
-        classifications[index].updatedAt = new Date().toISOString();
-        this.saveToStorage();
+  private generateSampleCampaignOrigins(): any[] {
+    return [
+      {
+        campaignCode: 'FB_VIDA_2024',
+        campaignName: 'Facebook - Seguros de Vida 2024',
+        source: 'FACEBOOK',
+        medium: 'CPC',
+        costPerLead: 15000,
+        totalInvestment: 5000000,
+        leadsGenerated: 333,
+        conversions: 42,
+        roi: 2.8,
+        startDate: '2024-01-01',
+        status: 'ACTIVE',
+        targetAudience: {
+          ageRange: '25-45',
+          location: ['Bogotá', 'Medellín', 'Cali'],
+          interests: ['seguros', 'familia', 'protección'],
+          gender: 'ALL'
+        }
       }
-    }
-  }
-
-  // Métodos para follow-up tasks
-  getFollowUpTasks(): any[] {
-    return [...(this.data.followUpTasks || [])];
-  }
-
-  addFollowUpTask(task: any): void {
-    if (!this.data.followUpTasks) {
-      this.data.followUpTasks = [];
-    }
-    
-    this.data.followUpTasks.unshift(task);
-    this.saveToStorage();
-  }
-
-  updateFollowUpTask(taskId: string, updates: any): void {
-    const tasks = this.data.followUpTasks || [];
-    const index = tasks.findIndex(task => task.id === taskId);
-    if (index !== -1) {
-      tasks[index] = { ...tasks[index], ...updates };
-      this.saveToStorage();
-    }
+    ];
   }
 }
 
-export const dataStore = new LocalDataStore();
+export const dataStore = new DataStoreService();
