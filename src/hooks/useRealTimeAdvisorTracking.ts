@@ -146,11 +146,11 @@ export const useRealTimeAdvisorTracking = () => {
 
   const getActivitySummary = () => {
     const last30Minutes = new Date(Date.now() - 30 * 60 * 1000);
-    const recentActivities = recentActivities.filter(
+    const recentActivitiesFiltered = recentActivities.filter(
       activity => new Date(activity.timestamp) > last30Minutes
     );
 
-    const summary = recentActivities.reduce((acc, activity) => {
+    const summary = recentActivitiesFiltered.reduce((acc, activity) => {
       acc[activity.activity] = (acc[activity.activity] || 0) + 1;
       return acc;
     }, {} as Record<string, number>);
