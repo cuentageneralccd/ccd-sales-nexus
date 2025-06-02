@@ -1,4 +1,3 @@
-
 import { VicidialLead, VicidialAgent } from './vicidialService';
 
 interface LocalDataStore {
@@ -12,6 +11,8 @@ interface LocalDataStore {
   promotions: any[];
   campaignOrigins: any[];
   contactHistory: any[];
+  leadPromotions: any[];
+  leadInteractions: any[];
 }
 
 class DataStoreService {
@@ -49,7 +50,9 @@ class DataStoreService {
       agents: this.generateSampleAgents(),
       promotions: this.generateSamplePromotions(),
       campaignOrigins: this.generateSampleCampaignOrigins(),
-      contactHistory: []
+      contactHistory: [],
+      leadPromotions: this.generateSampleLeadPromotions(),
+      leadInteractions: this.generateSampleLeadInteractions()
     };
   }
 
@@ -66,6 +69,15 @@ class DataStoreService {
       leads = leads.filter((lead: any) => lead.source === filters.source);
     }
 
+    if (filters.campaignCode) {
+      leads = leads.filter((lead: any) => lead.campaignOriginCode === filters.campaignCode);
+    }
+
+    if (filters.isActive && filters.isActive !== 'all') {
+      const isActive = filters.isActive === 'true';
+      leads = leads.filter((lead: any) => lead.isActive === isActive);
+    }
+
     if (filters.search) {
       const search = filters.search.toLowerCase();
       leads = leads.filter((lead: any) => 
@@ -79,6 +91,72 @@ class DataStoreService {
     return leads;
   }
 
+  // Lead Promotions management
+  getLeadPromotions(): any[] {
+    const data = this.getStoredData();
+    return data.leadPromotions || [];
+  }
+
+  addLeadPromotion(promotion: any): void {
+    const data = this.getStoredData();
+    if (!data.leadPromotions) data.leadPromotions = [];
+    data.leadPromotions.push(promotion);
+    this.saveData(data);
+  }
+
+  updateLeadPromotion(promotionId: string, updates: any): void {
+    const data = this.getStoredData();
+    if (!data.leadPromotions) return;
+    
+    const index = data.leadPromotions.findIndex((promo: any) => promo.id === promotionId);
+    if (index !== -1) {
+      data.leadPromotions[index] = { ...data.leadPromotions[index], ...updates };
+      this.saveData(data);
+    }
+  }
+
+  // Lead Interactions management
+  getLeadInteractions(): any[] {
+    const data = this.getStoredData();
+    return data.leadInteractions || [];
+  }
+
+  addLeadInteraction(interaction: any): void {
+    const data = this.getStoredData();
+    if (!data.leadInteractions) data.leadInteractions = [];
+    data.leadInteractions.push(interaction);
+    this.saveData(data);
+  }
+
+  // Campaign Profitability
+  getCampaignProfitability(): any[] {
+    const data = this.getStoredData();
+    const leads = data.leads;
+    
+    const campaignStats = leads.reduce((acc: any, lead: any) => {
+      const code = lead.campaignOriginCode || 'UNKNOWN';
+      if (!acc[code]) {
+        acc[code] = {
+          campaignCode: code,
+          campaignName: `Campaña ${code}`,
+          totalInvestment: 0,
+          leadsGenerated: 0,
+          activatedLeads: 0,
+          conversions: 0,
+          revenue: 0
+        };
+      }
+      
+      acc[code].leadsGenerated++;
+      if (lead.isActive) acc[code].activatedLeads++;
+      if (lead.status === 'SALE') acc[code].conversions++;
+      
+      return acc;
+    }, {});
+
+    return Object.values(campaignStats);
+  }
+
   addLead(leadData: any): void {
     const data = this.getStoredData();
     const newLead = {
@@ -86,6 +164,8 @@ class DataStoreService {
       entryDate: new Date().toISOString(),
       callCount: 0,
       score: 50,
+      isActive: false,
+      campaignOriginCode: leadData.campaignOriginCode || leadData.source || 'UNKNOWN',
       ...leadData
     };
     
@@ -103,7 +183,6 @@ class DataStoreService {
     }
   }
 
-  // Campaigns management
   getCampaigns(): any[] {
     const data = this.getStoredData();
     return data.campaigns;
@@ -130,7 +209,6 @@ class DataStoreService {
     }
   }
 
-  // Advisor metrics management
   getAdvisorMetrics(): any[] {
     const data = this.getStoredData();
     return data.advisorMetrics;
@@ -147,7 +225,6 @@ class DataStoreService {
     }
   }
 
-  // Quality reviews management
   getQualityReviews(): any[] {
     const data = this.getStoredData();
     return data.qualityReviews;
@@ -165,7 +242,6 @@ class DataStoreService {
     this.saveData(data);
   }
 
-  // Lead classifications management
   getLeadClassifications(): any[] {
     const data = this.getStoredData();
     return data.leadClassifications;
@@ -217,7 +293,6 @@ class DataStoreService {
     }
   }
 
-  // Follow-up tasks management
   getFollowUpTasks(): any[] {
     const data = this.getStoredData();
     return data.followUpTasks;
@@ -229,7 +304,6 @@ class DataStoreService {
     this.saveData(data);
   }
 
-  // Agents management
   getAgents(): any[] {
     const data = this.getStoredData();
     return data.agents;
@@ -253,7 +327,11 @@ class DataStoreService {
         comments: 'Interesado en seguro de vida, tiene 2 hijos menores',
         priority: 8,
         score: 85,
-        assignedAgent: 'asesor1'
+        assignedAgent: 'asesor1',
+        campaignOriginCode: 'FB_VIDA_2024',
+        isActive: true,
+        activationDate: '2024-01-15T11:00:00Z',
+        activatedBy: 'asesor1'
       },
       {
         id: 'lead_002',
@@ -269,7 +347,120 @@ class DataStoreService {
         comments: 'Busca seguro para vehículo nuevo',
         priority: 6,
         score: 65,
-        assignedAgent: 'asesor2'
+        assignedAgent: 'asesor2',
+        campaignOriginCode: 'GOOG_AUTO_2024',
+        isActive: false
+      },
+      {
+        id: 'lead_003',
+        vendorLeadCode: 'TIK_VIDA_2024_001',
+        firstName: 'Carlos',
+        lastName: 'Rodríguez',
+        phoneNumber: '3157894561',
+        email: 'carlos.rodriguez@email.com',
+        status: 'SALE',
+        source: 'TIKTOK',
+        entryDate: '2024-01-14T14:20:00Z',
+        callCount: 5,
+        comments: 'Cerró venta de seguro de vida premium',
+        priority: 9,
+        score: 95,
+        assignedAgent: 'asesor1',
+        campaignOriginCode: 'TIK_VIDA_2024',
+        isActive: true,
+        activationDate: '2024-01-14T15:00:00Z',
+        activatedBy: 'asesor1'
+      }
+    ];
+  }
+
+  private generateSampleLeadPromotions(): any[] {
+    return [
+      {
+        id: 'promo_001',
+        leadId: 'lead_001',
+        phoneNumber: '3001234567',
+        promotionId: 'PROM001',
+        promotionName: 'Seguro de Vida 50% Descuento',
+        interestLevel: 8,
+        status: 'INTERESTED',
+        dateShown: '2024-01-15T10:45:00Z',
+        notes: 'Muy interesado, tiene familia joven',
+        followUpRequired: true,
+        nextFollowUpDate: '2024-01-18T10:00:00Z'
+      },
+      {
+        id: 'promo_002',
+        leadId: 'lead_001',
+        phoneNumber: '3001234567',
+        promotionId: 'PROM002',
+        promotionName: 'Seguro Hogar + Auto Combo',
+        interestLevel: 6,
+        status: 'PRESENTED',
+        dateShown: '2024-01-15T11:15:00Z',
+        notes: 'Interés moderado, necesita consultar con esposa',
+        followUpRequired: true,
+        nextFollowUpDate: '2024-01-20T14:00:00Z'
+      },
+      {
+        id: 'promo_003',
+        leadId: 'lead_003',
+        phoneNumber: '3157894561',
+        promotionId: 'PROM001',
+        promotionName: 'Seguro de Vida 50% Descuento',
+        interestLevel: 10,
+        status: 'ACCEPTED',
+        dateShown: '2024-01-14T14:30:00Z',
+        responseDate: '2024-01-14T15:30:00Z',
+        notes: 'Aceptó la promoción - VENTA CERRADA',
+        followUpRequired: false
+      }
+    ];
+  }
+
+  private generateSampleLeadInteractions(): any[] {
+    return [
+      {
+        id: 'interaction_001',
+        leadId: 'lead_001',
+        phoneNumber: '3001234567',
+        advisorId: 'asesor1',
+        interactionType: 'CALL',
+        date: '2024-01-15T10:30:00Z',
+        duration: 450,
+        outcome: 'CONTACT_MADE',
+        notes: 'Primera llamada exitosa, cliente muy receptivo',
+        promotionsDiscussed: ['PROM001', 'PROM002'],
+        nextAction: 'Enviar cotización por WhatsApp',
+        nextActionDate: '2024-01-15T16:00:00Z'
+      },
+      {
+        id: 'interaction_002',
+        leadId: 'lead_001',
+        phoneNumber: '3001234567',
+        advisorId: 'asesor1',
+        interactionType: 'WHATSAPP',
+        date: '2024-01-15T16:00:00Z',
+        duration: 0,
+        outcome: 'CONTACT_MADE',
+        notes: 'Envió cotización detallada por WhatsApp',
+        promotionsDiscussed: ['PROM001'],
+        nextAction: 'Llamada de seguimiento',
+        nextActionDate: '2024-01-18T10:00:00Z'
+      },
+      {
+        id: 'interaction_003',
+        leadId: 'lead_003',
+        phoneNumber: '3157894561',
+        advisorId: 'asesor1',
+        interactionType: 'CALL',
+        date: '2024-01-14T14:20:00Z',
+        duration: 780,
+        outcome: 'SALE',
+        notes: 'Llamada de cierre exitosa - Venta concretada',
+        promotionsDiscussed: ['PROM001'],
+        nextAction: 'Enviar documentos para firma',
+        nextActionDate: '2024-01-15T09:00:00Z'
       }
     ];
   }
@@ -405,6 +596,21 @@ class DataStoreService {
         maxUsage: 1000,
         currentUsage: 245,
         status: 'ACTIVE'
+      },
+      {
+        id: 'PROM002',
+        promotionCode: 'COMBO_HOGAR_AUTO',
+        promotionName: 'Combo Hogar + Auto',
+        description: 'Seguro de hogar y auto con descuento por paquete',
+        discountType: 'PERCENTAGE',
+        discountValue: 30,
+        validFrom: '2024-01-01',
+        validUntil: '2024-12-31',
+        targetAudience: ['propietarios', 'familias'],
+        requirements: 'Tener casa propia y vehículo',
+        maxUsage: 500,
+        currentUsage: 89,
+        status: 'ACTIVE'
       }
     ];
   }
@@ -427,6 +633,44 @@ class DataStoreService {
           ageRange: '25-45',
           location: ['Bogotá', 'Medellín', 'Cali'],
           interests: ['seguros', 'familia', 'protección'],
+          gender: 'ALL'
+        }
+      },
+      {
+        campaignCode: 'GOOG_AUTO_2024',
+        campaignName: 'Google - Seguros de Auto 2024',
+        source: 'GOOGLE',
+        medium: 'CPC',
+        costPerLead: 18000,
+        totalInvestment: 3600000,
+        leadsGenerated: 200,
+        conversions: 28,
+        roi: 2.1,
+        startDate: '2024-01-01',
+        status: 'ACTIVE',
+        targetAudience: {
+          ageRange: '25-55',
+          location: ['Bogotá', 'Medellín', 'Cali', 'Barranquilla'],
+          interests: ['autos', 'seguros', 'vehículos'],
+          gender: 'ALL'
+        }
+      },
+      {
+        campaignCode: 'TIK_VIDA_2024',
+        campaignName: 'TikTok - Seguros Jóvenes 2024',
+        source: 'TIKTOK',
+        medium: 'CPC',
+        costPerLead: 12000,
+        totalInvestment: 2400000,
+        leadsGenerated: 200,
+        conversions: 15,
+        roi: 1.5,
+        startDate: '2024-01-01',
+        status: 'ACTIVE',
+        targetAudience: {
+          ageRange: '18-35',
+          location: ['Bogotá', 'Medellín', 'Cali'],
+          interests: ['seguros', 'protección', 'familia'],
           gender: 'ALL'
         }
       }

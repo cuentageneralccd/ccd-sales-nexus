@@ -59,6 +59,69 @@ class ApiService {
     });
   }
 
+  // Lead Promotions endpoints
+  async getLeadPromotions(phoneNumber?: string): Promise<ApiResponse<any[]>> {
+    const endpoint = phoneNumber ? `/leads/promotions?phone=${phoneNumber}` : '/leads/promotions';
+    return this.makeRequest(endpoint);
+  }
+
+  async addLeadPromotion(promotionData: any): Promise<ApiResponse<any>> {
+    return this.makeRequest('/leads/promotions', {
+      method: 'POST',
+      body: JSON.stringify(promotionData)
+    });
+  }
+
+  async updateLeadPromotion(promotionId: string, updates: any): Promise<ApiResponse<any>> {
+    return this.makeRequest(`/leads/promotions/${promotionId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(updates)
+    });
+  }
+
+  // Lead Interactions endpoints
+  async getLeadInteractions(phoneNumber?: string): Promise<ApiResponse<any[]>> {
+    const endpoint = phoneNumber ? `/leads/interactions?phone=${phoneNumber}` : '/leads/interactions';
+    return this.makeRequest(endpoint);
+  }
+
+  async addLeadInteraction(interactionData: any): Promise<ApiResponse<any>> {
+    return this.makeRequest('/leads/interactions', {
+      method: 'POST',
+      body: JSON.stringify(interactionData)
+    });
+  }
+
+  // Lead Activation endpoints
+  async activateLead(leadId: string, advisorId: string): Promise<ApiResponse<any>> {
+    return this.makeRequest(`/leads/${leadId}/activate`, {
+      method: 'POST',
+      body: JSON.stringify({ advisorId, activationDate: new Date().toISOString() })
+    });
+  }
+
+  async getLeadByPhone(phoneNumber: string): Promise<ApiResponse<any>> {
+    return this.makeRequest(`/leads/by-phone/${phoneNumber}`);
+  }
+
+  // Campaign Profitability endpoints
+  async getCampaignProfitability(): Promise<ApiResponse<any[]>> {
+    return this.makeRequest('/analytics/campaign-profitability');
+  }
+
+  async getCampaignROI(campaignCode: string): Promise<ApiResponse<any>> {
+    return this.makeRequest(`/analytics/campaign-roi/${campaignCode}`);
+  }
+
+  // Lead Tracking by Phone endpoints
+  async getLeadFullHistory(phoneNumber: string): Promise<ApiResponse<any>> {
+    return this.makeRequest(`/leads/history/${phoneNumber}`);
+  }
+
+  async getLeadPromotionHistory(phoneNumber: string): Promise<ApiResponse<any[]>> {
+    return this.makeRequest(`/leads/promotions/history/${phoneNumber}`);
+  }
+
   // Campaigns endpoints
   async getCampaigns(): Promise<ApiResponse<any[]>> {
     return this.makeRequest('/campaigns');
@@ -78,7 +141,6 @@ class ApiService {
     });
   }
 
-  // Financial endpoints
   async getFinancialMetrics(): Promise<ApiResponse<any>> {
     return this.makeRequest('/analytics/financial');
   }
