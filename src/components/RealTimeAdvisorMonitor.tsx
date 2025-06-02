@@ -112,6 +112,10 @@ export const RealTimeAdvisorMonitor = () => {
     document.body.removeChild(a);
   };
 
+  const handleFilterStatusChange = (value: string) => {
+    setFilterStatus(value as 'all' | 'critical' | 'warning');
+  };
+
   return (
     <div className="space-y-6">
       {/* Panel de Control Superior */}
@@ -165,7 +169,7 @@ export const RealTimeAdvisorMonitor = () => {
               </SelectContent>
             </Select>
 
-            <Select value={filterStatus} onValueChange={setFilterStatus}>
+            <Select value={filterStatus} onValueChange={handleFilterStatusChange}>
               <SelectTrigger className="w-40">
                 <SelectValue />
               </SelectTrigger>
