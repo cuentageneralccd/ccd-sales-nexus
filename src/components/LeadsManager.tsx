@@ -8,8 +8,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Users, Plus, Search, Phone, Edit, Trash2, Calendar, TrendingUp, AlertCircle } from "lucide-react";
 import { useLeads } from "@/hooks/useLeads";
+import { CallbackScheduleDialog } from "@/components/CallbackScheduleDialog";
 
 export const LeadsManager = () => {
   const { 
@@ -18,17 +20,20 @@ export const LeadsManager = () => {
     filters, 
     setFilters, 
     addLead, 
-    updateLead, 
+    updateLead,
+    deleteLead, // NUEVO
+    scheduleCallback, // NUEVO
     callLead,
     getLeadsByStatus,
-    getLeadsBySource,
-    getHighPriorityLeads
+    getLeadsBySource, // AHORA EXISTE
+    getHighPriorityLeads // AHORA EXISTE
   } = useLeads();
 
   const [isAddLeadOpen, setIsAddLeadOpen] = useState(false);
   const [newLead, setNewLead] = useState<any>({});
   const [selectedLead, setSelectedLead] = useState<any>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isCallbackDialogOpen, setIsCallbackDialogOpen] = useState(false);
 
   const handleAddLead = async () => {
     if (!newLead.firstName || !newLead.lastName || !newLead.phoneNumber) {
@@ -52,6 +57,18 @@ export const LeadsManager = () => {
     await callLead(lead);
   };
 
+  // NUEVO: Manejar eliminación de lead
+  const handleDeleteLead = async (leadId: string) => {
+    await deleteLead(leadId);
+  };
+
+  // NUEVO: Manejar programación de callback
+  const handleScheduleCallback = async (date: string, notes: string) => {
+    if (selectedLead) {
+      await scheduleCallback(selectedLead.id, date, notes);
+    }
+  };
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'NEW': return 'bg-blue-500';
@@ -70,8 +87,8 @@ export const LeadsManager = () => {
   };
 
   const statusStats = getLeadsByStatus();
-  const sourceStats = getLeadsBySource();
-  const highPriorityLeads = getHighPriorityLeads();
+  const sourceStats = getLeadsBySource(); // AHORA FUNCIONA
+  const highPriorityLeads = getHighPriorityLeads(); // AHORA FUNCIONA
 
   return (
     <div className="space-y-6">
@@ -314,9 +331,41 @@ export const LeadsManager = () => {
                     >
                       <Edit className="h-4 w-4" />
                     </Button>
-                    <Button size="sm" variant="outline">
+                    <Button 
+                      size="sm" 
+                      variant="outline"
+                      onClick={() => {
+                        setSelectedLead(lead);
+                        setIsCallbackDialogOpen(true);
+                      }}
+                    >
                       <Calendar className="h-4 w-4" />
                     </Button>
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button size="sm" variant="outline" className="text-red-600 hover:text-red-700">
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>¿Eliminar Lead?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            Esta acción no se puede deshacer. Se eliminará permanentemente el lead 
+                            {lead.firstName} {lead.lastName} y todos sus datos asociados.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                          <AlertDialogAction 
+                            onClick={() => handleDeleteLead(lead.id)}
+                            className="bg-red-600 hover:bg-red-700"
+                          >
+                            Eliminar
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
                   </div>
                 </div>
                 
@@ -417,6 +466,14 @@ export const LeadsManager = () => {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Dialog de Programación de Callback */}
+      <CallbackScheduleDialog
+        isOpen={isCallbackDialogOpen}
+        onOpenChange={setIsCallbackDialogOpen}
+        onSchedule={handleScheduleCallback}
+        leadName={selectedLead ? `${selectedLead.firstName} ${selectedLead.lastName}` : ''}
+      />
     </div>
   );
 };

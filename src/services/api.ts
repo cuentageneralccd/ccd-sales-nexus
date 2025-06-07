@@ -59,6 +59,13 @@ class ApiService {
     });
   }
 
+  // NUEVO: Método faltante para eliminar lead
+  async deleteLead(id: string): Promise<ApiResponse<any>> {
+    return this.makeRequest(`/leads/${id}`, {
+      method: 'DELETE'
+    });
+  }
+
   // Lead Promotions endpoints
   async getLeadPromotions(phoneNumber?: string): Promise<ApiResponse<any[]>> {
     const endpoint = phoneNumber ? `/leads/promotions?phone=${phoneNumber}` : '/leads/promotions';

@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { dataStore } from '@/services/dataStore';
 import { apiService } from '@/services/api';
@@ -126,6 +127,81 @@ export const useLeads = () => {
     return leadInteractions
       .filter(interaction => interaction.phoneNumber === phoneNumber)
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  };
+
+  // NUEVO: Método faltante para obtener leads por fuente
+  const getLeadsBySource = () => {
+    const sourceCount = leads.reduce((acc, lead) => {
+      acc[lead.source] = (acc[lead.source] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+    
+    return sourceCount;
+  };
+
+  // NUEVO: Método faltante para obtener leads de alta prioridad
+  const getHighPriorityLeads = () => {
+    return leads.filter(lead => lead.priority >= 8);
+  };
+
+  // NUEVO: Método para eliminar lead
+  const deleteLead = async (leadId: string) => {
+    try {
+      setIsLoading(true);
+      
+      // Eliminar lead del dataStore local
+      dataStore.deleteLead(leadId);
+      
+      // Intentar eliminar del servidor
+      try {
+        await apiService.deleteLead(leadId);
+      } catch (error) {
+        console.warn('No se pudo eliminar del servidor, eliminado localmente');
+      }
+      
+      // Recargar leads
+      await loadLeads();
+      
+      toast({
+        title: "Lead Eliminado",
+        description: "El lead ha sido eliminado exitosamente",
+      });
+    } catch (error) {
+      console.error('Error eliminando lead:', error);
+      toast({
+        title: "Error",
+        description: "No se pudo eliminar el lead",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // NUEVO: Método para programar callback
+  const scheduleCallback = async (leadId: string, callbackDate: string, notes: string) => {
+    try {
+      const updates = {
+        status: 'CALLBACK',
+        comments: notes,
+        nextAction: 'CALLBACK_SCHEDULED',
+        nextActionDate: callbackDate
+      };
+
+      await updateLead(leadId, updates);
+      
+      toast({
+        title: "Callback Programado",
+        description: `Callback programado para ${new Date(callbackDate).toLocaleDateString()}`,
+      });
+    } catch (error) {
+      console.error('Error programando callback:', error);
+      toast({
+        title: "Error",
+        description: "No se pudo programar el callback",
+        variant: "destructive",
+      });
+    }
   };
 
   const addPromotionInterest = async (phoneNumber: string, promotionData: Partial<LeadPromotion>) => {
@@ -429,6 +505,8 @@ export const useLeads = () => {
     setFilters,
     addLead,
     updateLead,
+    deleteLead, // NUEVO
+    scheduleCallback, // NUEVO
     callLead,
     getLeadByPhoneNumber,
     getLeadPromotions,
@@ -439,6 +517,8 @@ export const useLeads = () => {
     recordInteraction,
     getCampaignProfitabilityReport,
     getLeadsByStatus,
+    getLeadsBySource, // NUEVO - Método faltante agregado
+    getHighPriorityLeads, // NUEVO - Método faltante agregado
     getActiveLeadsCount,
     getLeadsWithMultiplePromotions,
     refresh: loadLeads
