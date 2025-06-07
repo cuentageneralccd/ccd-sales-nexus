@@ -2,16 +2,19 @@
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { Users, Plus, Search, Phone, Edit, Trash2, Calendar, TrendingUp, AlertCircle } from "lucide-react";
+import { Users, Plus, Phone, Edit, Trash2, Calendar } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
 import { useLeads } from "@/hooks/useLeads";
 import { CallbackScheduleDialog } from "@/components/CallbackScheduleDialog";
+import { LeadForm } from "@/components/LeadForm";
+import { LeadKPIs } from "@/components/LeadKPIs";
+import { LeadFilters } from "@/components/LeadFilters";
 
 export const LeadsManager = () => {
   const { 
@@ -21,29 +24,18 @@ export const LeadsManager = () => {
     setFilters, 
     addLead, 
     updateLead,
-    deleteLead, // NUEVO
-    scheduleCallback, // NUEVO
+    deleteLead,
+    scheduleCallback,
     callLead,
     getLeadsByStatus,
-    getLeadsBySource, // AHORA EXISTE
-    getHighPriorityLeads // AHORA EXISTE
+    getLeadsBySource,
+    getHighPriorityLeads
   } = useLeads();
 
   const [isAddLeadOpen, setIsAddLeadOpen] = useState(false);
-  const [newLead, setNewLead] = useState<any>({});
   const [selectedLead, setSelectedLead] = useState<any>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isCallbackDialogOpen, setIsCallbackDialogOpen] = useState(false);
-
-  const handleAddLead = async () => {
-    if (!newLead.firstName || !newLead.lastName || !newLead.phoneNumber) {
-      return;
-    }
-
-    await addLead(newLead);
-    setNewLead({});
-    setIsAddLeadOpen(false);
-  };
 
   const handleEditLead = async (updates: any) => {
     if (selectedLead) {
@@ -53,16 +45,10 @@ export const LeadsManager = () => {
     }
   };
 
-  const handleCallLead = async (lead: any) => {
-    await callLead(lead);
-  };
-
-  // NUEVO: Manejar eliminación de lead
   const handleDeleteLead = async (leadId: string) => {
     await deleteLead(leadId);
   };
 
-  // NUEVO: Manejar programación de callback
   const handleScheduleCallback = async (date: string, notes: string) => {
     if (selectedLead) {
       await scheduleCallback(selectedLead.id, date, notes);
@@ -87,61 +73,16 @@ export const LeadsManager = () => {
   };
 
   const statusStats = getLeadsByStatus();
-  const sourceStats = getLeadsBySource(); // AHORA FUNCIONA
-  const highPriorityLeads = getHighPriorityLeads(); // AHORA FUNCIONA
+  const highPriorityLeads = getHighPriorityLeads();
 
   return (
     <div className="space-y-6">
-      {/* KPIs de Leads */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">Total Leads</p>
-                <p className="text-2xl font-bold">{leads.length}</p>
-              </div>
-              <Users className="h-8 w-8 text-blue-500" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">Nuevos Hoy</p>
-                <p className="text-2xl font-bold">{statusStats.NEW || 0}</p>
-              </div>
-              <TrendingUp className="h-8 w-8 text-green-500" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">Ventas</p>
-                <p className="text-2xl font-bold">{statusStats.SALE || 0}</p>
-              </div>
-              <Phone className="h-8 w-8 text-purple-500" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">Alta Prioridad</p>
-                <p className="text-2xl font-bold">{highPriorityLeads.length}</p>
-              </div>
-              <AlertCircle className="h-8 w-8 text-red-500" />
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      <LeadKPIs
+        totalLeads={leads.length}
+        newLeads={statusStats.NEW || 0}
+        sales={statusStats.SALE || 0}
+        highPriorityCount={highPriorityLeads.length}
+      />
 
       <Card>
         <CardHeader>
@@ -151,142 +92,18 @@ export const LeadsManager = () => {
               Gestión de Leads ({leads.length})
               {isLoading && <span className="ml-2 text-sm text-gray-500">Sincronizando...</span>}
             </div>
-            <Dialog open={isAddLeadOpen} onOpenChange={setIsAddLeadOpen}>
-              <DialogTrigger asChild>
-                <Button>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Nuevo Lead
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="max-w-md">
-                <DialogHeader>
-                  <DialogTitle>Agregar Nuevo Lead</DialogTitle>
-                </DialogHeader>
-                <div className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <Label htmlFor="firstName">Nombre *</Label>
-                      <Input
-                        id="firstName"
-                        value={newLead.firstName || ""}
-                        onChange={(e) => setNewLead({...newLead, firstName: e.target.value})}
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="lastName">Apellido *</Label>
-                      <Input
-                        id="lastName"
-                        value={newLead.lastName || ""}
-                        onChange={(e) => setNewLead({...newLead, lastName: e.target.value})}
-                      />
-                    </div>
-                  </div>
-                  
-                  <div>
-                    <Label htmlFor="phoneNumber">Teléfono *</Label>
-                    <Input
-                      id="phoneNumber"
-                      value={newLead.phoneNumber || ""}
-                      onChange={(e) => setNewLead({...newLead, phoneNumber: e.target.value})}
-                    />
-                  </div>
-                  
-                  <div>
-                    <Label htmlFor="email">Email</Label>
-                    <Input
-                      id="email"
-                      type="email"
-                      value={newLead.email || ""}
-                      onChange={(e) => setNewLead({...newLead, email: e.target.value})}
-                    />
-                  </div>
-                  
-                  <div>
-                    <Label htmlFor="source">Fuente</Label>
-                    <Select onValueChange={(value) => setNewLead({...newLead, source: value})}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Seleccionar fuente" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Meta Ads">Meta Ads</SelectItem>
-                        <SelectItem value="Google Ads">Google Ads</SelectItem>
-                        <SelectItem value="TikTok Ads">TikTok Ads</SelectItem>
-                        <SelectItem value="Website">Website</SelectItem>
-                        <SelectItem value="Referido">Referido</SelectItem>
-                        <SelectItem value="Manual">Manual</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  
-                  <div>
-                    <Label htmlFor="priority">Prioridad (1-10)</Label>
-                    <Input
-                      id="priority"
-                      type="number"
-                      min="1"
-                      max="10"
-                      value={newLead.priority || 5}
-                      onChange={(e) => setNewLead({...newLead, priority: parseInt(e.target.value)})}
-                    />
-                  </div>
-                  
-                  <div>
-                    <Label htmlFor="comments">Comentarios</Label>
-                    <Textarea
-                      id="comments"
-                      value={newLead.comments || ""}
-                      onChange={(e) => setNewLead({...newLead, comments: e.target.value})}
-                    />
-                  </div>
-                  
-                  <Button onClick={handleAddLead} className="w-full" disabled={isLoading}>
-                    {isLoading ? "Agregando..." : "Agregar Lead"}
-                  </Button>
-                </div>
-              </DialogContent>
-            </Dialog>
+            <Button onClick={() => setIsAddLeadOpen(true)}>
+              <Plus className="h-4 w-4 mr-2" />
+              Nuevo Lead
+            </Button>
           </CardTitle>
         </CardHeader>
         <CardContent>
-          {/* Filtros Avanzados */}
-          <div className="flex flex-wrap gap-4 mb-6">
-            <div className="flex-1 min-w-64">
-              <Input
-                placeholder="Buscar por nombre, teléfono o email..."
-                value={filters.search}
-                onChange={(e) => setFilters({...filters, search: e.target.value})}
-                className="w-full"
-              />
-            </div>
-            <Select value={filters.status} onValueChange={(value) => setFilters({...filters, status: value})}>
-              <SelectTrigger className="w-48">
-                <SelectValue placeholder="Filtrar por estado" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos los Estados</SelectItem>
-                <SelectItem value="NEW">Nuevos</SelectItem>
-                <SelectItem value="CONTACTED">Contactados</SelectItem>
-                <SelectItem value="CALLBACK">Callbacks</SelectItem>
-                <SelectItem value="SALE">Ventas</SelectItem>
-                <SelectItem value="NOT_INTERESTED">No Interesados</SelectItem>
-              </SelectContent>
-            </Select>
-            <Select value={filters.source} onValueChange={(value) => setFilters({...filters, source: value})}>
-              <SelectTrigger className="w-48">
-                <SelectValue placeholder="Filtrar por fuente" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="">Todas las Fuentes</SelectItem>
-                <SelectItem value="Meta Ads">Meta Ads</SelectItem>
-                <SelectItem value="Google Ads">Google Ads</SelectItem>
-                <SelectItem value="TikTok Ads">TikTok Ads</SelectItem>
-                <SelectItem value="Website">Website</SelectItem>
-                <SelectItem value="Referido">Referido</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+          <LeadFilters
+            filters={filters}
+            onFiltersChange={setFilters}
+          />
 
-          {/* Lista de Leads Mejorada */}
           <div className="space-y-3">
             {leads.map((lead) => (
               <div
@@ -315,7 +132,7 @@ export const LeadsManager = () => {
                   <div className="flex space-x-2">
                     <Button 
                       size="sm" 
-                      onClick={() => handleCallLead(lead)}
+                      onClick={() => callLead(lead)}
                       className="bg-green-600 hover:bg-green-700"
                       disabled={isLoading}
                     >
@@ -408,7 +225,13 @@ export const LeadsManager = () => {
         </CardContent>
       </Card>
 
-      {/* Dialog de Edición */}
+      <LeadForm
+        isOpen={isAddLeadOpen}
+        onOpenChange={setIsAddLeadOpen}
+        onSubmit={addLead}
+        isLoading={isLoading}
+      />
+
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
@@ -467,7 +290,6 @@ export const LeadsManager = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Dialog de Programación de Callback */}
       <CallbackScheduleDialog
         isOpen={isCallbackDialogOpen}
         onOpenChange={setIsCallbackDialogOpen}

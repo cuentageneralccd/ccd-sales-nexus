@@ -1,680 +1,588 @@
-import { VicidialLead, VicidialAgent } from './vicidialService';
+interface Lead {
+  id: string;
+  vendorLeadCode: string;
+  firstName: string;
+  lastName: string;
+  phoneNumber: string;
+  email: string;
+  status: string;
+  source: string;
+  entryDate: string;
+  lastCallDate?: string;
+  callCount: number;
+  comments: string;
+  priority: number;
+  score: number;
+  assignedAgent: string;
+  campaignOriginCode: string;
+  isActive: boolean;
+  activationDate?: string;
+  activatedBy?: string;
+}
 
-interface LocalDataStore {
-  leads: any[];
-  campaigns: any[];
-  advisorMetrics: any[];
-  qualityReviews: any[];
-  leadClassifications: any[];
-  followUpTasks: any[];
-  agents: any[];
-  promotions: any[];
-  campaignOrigins: any[];
-  contactHistory: any[];
-  leadPromotions: any[];
-  leadInteractions: any[];
+interface LeadPromotion {
+  id: string;
+  leadId: string;
+  phoneNumber: string;
+  promotionId: string;
+  promotionName: string;
+  interestLevel: number;
+  status: 'INTERESTED' | 'PRESENTED' | 'ACCEPTED' | 'REJECTED' | 'PENDING';
+  dateShown: string;
+  responseDate?: string;
+  notes: string;
+  followUpRequired: boolean;
+  nextFollowUpDate?: string;
+}
+
+interface LeadInteraction {
+  id: string;
+  leadId: string;
+  phoneNumber: string;
+  advisorId: string;
+  interactionType: 'CALL' | 'EMAIL' | 'SMS' | 'WHATSAPP' | 'MEETING';
+  date: string;
+  duration: number;
+  outcome: 'CONTACT_MADE' | 'NO_ANSWER' | 'BUSY' | 'VOICEMAIL' | 'APPOINTMENT_SET' | 'SALE' | 'NOT_INTERESTED';
+  notes: string;
+  promotionsDiscussed: string[];
+  nextAction?: string;
+  nextActionDate?: string;
+}
+
+interface CampaignProfitability {
+  campaignCode: string;
+  campaignName: string;
+  totalInvestment: number;
+  leadsGenerated: number;
+  activatedLeads: number;
+  conversions: number;
+  revenue: number;
+  roi: number;
+  costPerLead: number;
+  costPerActivation: number;
+  costPerConversion: number;
+  profitability: number;
 }
 
 class DataStoreService {
-  private storageKey = 'ccd_crm_data';
-  
-  private getStoredData(): LocalDataStore {
-    try {
-      const stored = localStorage.getItem(this.storageKey);
-      if (stored) {
-        return JSON.parse(stored);
-      }
-    } catch (error) {
-      console.error('Error reading from localStorage:', error);
-    }
-    
-    return this.getDefaultData();
+  private leads: Lead[] = [];
+  private leadPromotions: LeadPromotion[] = [];
+  private leadInteractions: LeadInteraction[] = [];
+  private campaignProfitability: CampaignProfitability[] = [];
+
+  constructor() {
+    this.loadFromStorage();
   }
 
-  private saveData(data: LocalDataStore): void {
-    try {
-      localStorage.setItem(this.storageKey, JSON.stringify(data));
-    } catch (error) {
-      console.error('Error saving to localStorage:', error);
-    }
+  private loadFromStorage(): void {
+    const storedLeads = localStorage.getItem('leads');
+    this.leads = storedLeads ? JSON.parse(storedLeads) : this.getDefaultLeads();
+
+    const storedLeadPromotions = localStorage.getItem('leadPromotions');
+    this.leadPromotions = storedLeadPromotions ? JSON.parse(storedLeadPromotions) : this.getDefaultLeadPromotions();
+
+    const storedLeadInteractions = localStorage.getItem('leadInteractions');
+    this.leadInteractions = storedLeadInteractions ? JSON.parse(storedLeadInteractions) : this.getDefaultLeadInteractions();
+
+    const storedCampaignProfitability = localStorage.getItem('campaignProfitability');
+    this.campaignProfitability = storedCampaignProfitability ? JSON.parse(storedCampaignProfitability) : this.getDefaultCampaignProfitability();
   }
 
-  private getDefaultData(): LocalDataStore {
-    return {
-      leads: this.generateSampleLeads(),
-      campaigns: this.generateSampleCampaigns(),
-      advisorMetrics: this.generateSampleAdvisorMetrics(),
-      qualityReviews: [],
-      leadClassifications: [],
-      followUpTasks: [],
-      agents: this.generateSampleAgents(),
-      promotions: this.generateSamplePromotions(),
-      campaignOrigins: this.generateSampleCampaignOrigins(),
-      contactHistory: [],
-      leadPromotions: this.generateSampleLeadPromotions(),
-      leadInteractions: this.generateSampleLeadInteractions()
-    };
+  private saveToStorage(): void {
+    localStorage.setItem('leads', JSON.stringify(this.leads));
+    localStorage.setItem('leadPromotions', JSON.stringify(this.leadPromotions));
+    localStorage.setItem('leadInteractions', JSON.stringify(this.leadInteractions));
+    localStorage.setItem('campaignProfitability', JSON.stringify(this.campaignProfitability));
   }
 
-  // Leads management
-  getLeads(filters: any = {}): any[] {
-    const data = this.getStoredData();
-    let leads = data.leads;
-
-    if (filters.status && filters.status !== 'all') {
-      leads = leads.filter((lead: any) => lead.status === filters.status);
-    }
-
-    if (filters.source) {
-      leads = leads.filter((lead: any) => lead.source === filters.source);
-    }
-
-    if (filters.campaignCode) {
-      leads = leads.filter((lead: any) => lead.campaignOriginCode === filters.campaignCode);
-    }
-
-    if (filters.isActive && filters.isActive !== 'all') {
-      const isActive = filters.isActive === 'true';
-      leads = leads.filter((lead: any) => lead.isActive === isActive);
-    }
-
-    if (filters.search) {
-      const search = filters.search.toLowerCase();
-      leads = leads.filter((lead: any) => 
-        lead.firstName?.toLowerCase().includes(search) ||
-        lead.lastName?.toLowerCase().includes(search) ||
-        lead.phoneNumber?.includes(search) ||
-        lead.email?.toLowerCase().includes(search)
-      );
-    }
-
-    return leads;
-  }
-
-  // Lead Promotions management
-  getLeadPromotions(): any[] {
-    const data = this.getStoredData();
-    return data.leadPromotions || [];
-  }
-
-  addLeadPromotion(promotion: any): void {
-    const data = this.getStoredData();
-    if (!data.leadPromotions) data.leadPromotions = [];
-    data.leadPromotions.push(promotion);
-    this.saveData(data);
-  }
-
-  updateLeadPromotion(promotionId: string, updates: any): void {
-    const data = this.getStoredData();
-    if (!data.leadPromotions) return;
-    
-    const index = data.leadPromotions.findIndex((promo: any) => promo.id === promotionId);
-    if (index !== -1) {
-      data.leadPromotions[index] = { ...data.leadPromotions[index], ...updates };
-      this.saveData(data);
-    }
-  }
-
-  // Lead Interactions management
-  getLeadInteractions(): any[] {
-    const data = this.getStoredData();
-    return data.leadInteractions || [];
-  }
-
-  addLeadInteraction(interaction: any): void {
-    const data = this.getStoredData();
-    if (!data.leadInteractions) data.leadInteractions = [];
-    data.leadInteractions.push(interaction);
-    this.saveData(data);
-  }
-
-  // Campaign Profitability
-  getCampaignProfitability(): any[] {
-    const data = this.getStoredData();
-    const leads = data.leads;
-    
-    const campaignStats = leads.reduce((acc: any, lead: any) => {
-      const code = lead.campaignOriginCode || 'UNKNOWN';
-      if (!acc[code]) {
-        acc[code] = {
-          campaignCode: code,
-          campaignName: `Campaña ${code}`,
-          totalInvestment: 0,
-          leadsGenerated: 0,
-          activatedLeads: 0,
-          conversions: 0,
-          revenue: 0
-        };
-      }
-      
-      acc[code].leadsGenerated++;
-      if (lead.isActive) acc[code].activatedLeads++;
-      if (lead.status === 'SALE') acc[code].conversions++;
-      
-      return acc;
-    }, {});
-
-    return Object.values(campaignStats);
-  }
-
-  addLead(leadData: any): void {
-    const data = this.getStoredData();
-    const newLead = {
-      id: `lead_${Date.now()}`,
-      entryDate: new Date().toISOString(),
-      callCount: 0,
-      score: 50,
-      isActive: false,
-      campaignOriginCode: leadData.campaignOriginCode || leadData.source || 'UNKNOWN',
-      ...leadData
-    };
-    
-    data.leads.push(newLead);
-    this.saveData(data);
-  }
-
-  updateLead(id: string, updates: any): void {
-    const data = this.getStoredData();
-    const index = data.leads.findIndex((lead: any) => lead.id === id);
-    
-    if (index !== -1) {
-      data.leads[index] = { ...data.leads[index], ...updates };
-      this.saveData(data);
-    }
-  }
-
-  getCampaigns(): any[] {
-    const data = this.getStoredData();
-    return data.campaigns;
-  }
-
-  addCampaign(campaignData: any): void {
-    const data = this.getStoredData();
-    const newCampaign = {
-      id: `campaign_${Date.now()}`,
-      ...campaignData
-    };
-    
-    data.campaigns.push(newCampaign);
-    this.saveData(data);
-  }
-
-  updateCampaign(id: string, updates: any): void {
-    const data = this.getStoredData();
-    const index = data.campaigns.findIndex((campaign: any) => campaign.id === id);
-    
-    if (index !== -1) {
-      data.campaigns[index] = { ...data.campaigns[index], ...updates };
-      this.saveData(data);
-    }
-  }
-
-  getAdvisorMetrics(): any[] {
-    const data = this.getStoredData();
-    return data.advisorMetrics;
-  }
-
-  updateAdvisorStatus(advisorId: string, status: string): void {
-    const data = this.getStoredData();
-    const index = data.advisorMetrics.findIndex((advisor: any) => advisor.id === advisorId);
-    
-    if (index !== -1) {
-      data.advisorMetrics[index].status = status;
-      data.advisorMetrics[index].lastActivity = new Date().toISOString();
-      this.saveData(data);
-    }
-  }
-
-  getQualityReviews(): any[] {
-    const data = this.getStoredData();
-    return data.qualityReviews;
-  }
-
-  addQualityReview(reviewData: any): void {
-    const data = this.getStoredData();
-    const newReview = {
-      id: `review_${Date.now()}`,
-      date: new Date().toISOString(),
-      ...reviewData
-    };
-    
-    data.qualityReviews.push(newReview);
-    this.saveData(data);
-  }
-
-  getLeadClassifications(): any[] {
-    const data = this.getStoredData();
-    return data.leadClassifications;
-  }
-
-  updateLeadClassification(leadId: string, classification: any): void {
-    const data = this.getStoredData();
-    const index = data.leadClassifications.findIndex((c: any) => c.leadId === leadId);
-    
-    if (index !== -1) {
-      data.leadClassifications[index] = { ...data.leadClassifications[index], ...classification };
-    } else {
-      data.leadClassifications.push({
-        id: `classification_${Date.now()}`,
-        leadId,
-        createdAt: new Date().toISOString(),
-        ...classification
-      });
-    }
-    
-    this.saveData(data);
-  }
-
-  addLeadObservation(leadId: string, observation: any): void {
-    const data = this.getStoredData();
-    const classification = data.leadClassifications.find((c: any) => c.leadId === leadId);
-    
-    if (classification) {
-      if (!classification.observations) {
-        classification.observations = [];
-      }
-      classification.observations.push(observation);
-      this.saveData(data);
-    }
-  }
-
-  applyPromotion(leadId: string, promotionId: string): void {
-    const data = this.getStoredData();
-    const classification = data.leadClassifications.find((c: any) => c.leadId === leadId);
-    
-    if (classification && classification.promotions) {
-      const promotion = classification.promotions.find((p: any) => p.id === promotionId);
-      if (promotion) {
-        promotion.applied = true;
-        promotion.appliedDate = new Date().toISOString();
-        promotion.status = 'APPLIED';
-        this.saveData(data);
-      }
-    }
-  }
-
-  getFollowUpTasks(): any[] {
-    const data = this.getStoredData();
-    return data.followUpTasks;
-  }
-
-  addFollowUpTask(task: any): void {
-    const data = this.getStoredData();
-    data.followUpTasks.push(task);
-    this.saveData(data);
-  }
-
-  getAgents(): any[] {
-    const data = this.getStoredData();
-    return data.agents;
-  }
-
-  // Sample data generators
-  private generateSampleLeads(): any[] {
+  private getDefaultLeads(): Lead[] {
     return [
       {
-        id: 'lead_001',
-        vendorLeadCode: 'FB_VIDA_2024_001',
-        firstName: 'Juan',
-        lastName: 'Pérez',
-        phoneNumber: '3001234567',
-        email: 'juan.perez@email.com',
-        status: 'CALLBACK',
-        source: 'FACEBOOK',
-        entryDate: '2024-01-15T10:30:00Z',
-        lastCallDate: '2024-01-15',
-        callCount: 2,
-        comments: 'Interesado en seguro de vida, tiene 2 hijos menores',
-        priority: 8,
-        score: 85,
-        assignedAgent: 'asesor1',
-        campaignOriginCode: 'FB_VIDA_2024',
-        isActive: true,
-        activationDate: '2024-01-15T11:00:00Z',
-        activatedBy: 'asesor1'
-      },
-      {
-        id: 'lead_002',
-        vendorLeadCode: 'GOOG_AUTO_2024_001',
-        firstName: 'María',
+        id: 'lead_1',
+        vendorLeadCode: 'LC001',
+        firstName: 'Ana',
         lastName: 'García',
-        phoneNumber: '3109876543',
-        email: 'maria.garcia@email.com',
+        phoneNumber: '3001112222',
+        email: 'ana.garcia@example.com',
         status: 'NEW',
-        source: 'GOOGLE',
-        entryDate: '2024-01-16T09:15:00Z',
+        source: 'Meta Ads',
+        entryDate: '2024-01-01',
         callCount: 0,
-        comments: 'Busca seguro para vehículo nuevo',
-        priority: 6,
+        comments: 'Interesada en plan familiar',
+        priority: 7,
         score: 65,
-        assignedAgent: 'asesor2',
-        campaignOriginCode: 'GOOG_AUTO_2024',
+        assignedAgent: 'asesor1',
+        campaignOriginCode: 'META01',
         isActive: false
       },
       {
-        id: 'lead_003',
-        vendorLeadCode: 'TIK_VIDA_2024_001',
+        id: 'lead_2',
+        vendorLeadCode: 'LC002',
         firstName: 'Carlos',
+        lastName: 'Pérez',
+        phoneNumber: '3102223333',
+        email: 'carlos.perez@example.com',
+        status: 'CONTACTED',
+        source: 'Google Ads',
+        entryDate: '2024-01-05',
+        callCount: 1,
+        comments: 'Preguntó por cobertura internacional',
+        priority: 5,
+        score: 78,
+        assignedAgent: 'asesor2',
+        campaignOriginCode: 'GOOGLE02',
+        isActive: true,
+        activationDate: '2024-01-06',
+        activatedBy: 'asesor2'
+      },
+      {
+        id: 'lead_3',
+        vendorLeadCode: 'LC003',
+        firstName: 'Luisa',
         lastName: 'Rodríguez',
-        phoneNumber: '3157894561',
-        email: 'carlos.rodriguez@email.com',
-        status: 'SALE',
-        source: 'TIKTOK',
-        entryDate: '2024-01-14T14:20:00Z',
-        callCount: 5,
-        comments: 'Cerró venta de seguro de vida premium',
+        phoneNumber: '3203334444',
+        email: 'luisa.rodriguez@example.com',
+        status: 'CALLBACK',
+        source: 'Referido',
+        entryDate: '2024-01-10',
+        lastCallDate: '2024-01-11',
+        callCount: 2,
+        comments: 'Agendar callback para el viernes',
         priority: 9,
+        score: 82,
+        assignedAgent: 'asesor1',
+        campaignOriginCode: 'REFERIDO03',
+        isActive: false
+      },
+      {
+        id: 'lead_4',
+        vendorLeadCode: 'LC004',
+        firstName: 'Pedro',
+        lastName: 'Fernández',
+        phoneNumber: '3014445555',
+        email: 'pedro.fernandez@example.com',
+        status: 'SALE',
+        source: 'Website',
+        entryDate: '2024-01-15',
+        callCount: 3,
+        comments: 'Cierre exitoso, póliza activada',
+        priority: 6,
+        score: 91,
+        assignedAgent: 'asesor3',
+        campaignOriginCode: 'WEB04',
+        isActive: true,
+        activationDate: '2024-01-16',
+        activatedBy: 'asesor3'
+      },
+      {
+        id: 'lead_5',
+        vendorLeadCode: 'LC005',
+        firstName: 'Sofía',
+        lastName: 'Martínez',
+        phoneNumber: '3115556666',
+        email: 'sofia.martinez@example.com',
+        status: 'NOT_INTERESTED',
+        source: 'TikTok Ads',
+        entryDate: '2024-01-20',
+        callCount: 1,
+        comments: 'No le interesa el seguro en este momento',
+        priority: 3,
+        score: 45,
+        assignedAgent: 'asesor2',
+        campaignOriginCode: 'TIKTOK05',
+        isActive: false
+      },
+      {
+        id: 'lead_6',
+        vendorLeadCode: 'LC006',
+        firstName: 'Diego',
+        lastName: 'Sánchez',
+        phoneNumber: '3216667777',
+        email: 'diego.sanchez@example.com',
+        status: 'NEW',
+        source: 'Meta Ads',
+        entryDate: '2024-01-25',
+        callCount: 0,
+        comments: 'Nuevo lead, contactar pronto',
+        priority: 8,
+        score: 70,
+        assignedAgent: 'asesor1',
+        campaignOriginCode: 'META06',
+        isActive: false
+      },
+      {
+        id: 'lead_7',
+        vendorLeadCode: 'LC007',
+        firstName: 'Isabela',
+        lastName: 'Ramírez',
+        phoneNumber: '3027778888',
+        email: 'isabela.ramirez@example.com',
+        status: 'CONTACTED',
+        source: 'Google Ads',
+        entryDate: '2024-01-28',
+        callCount: 2,
+        comments: 'Enviada información por correo',
+        priority: 4,
+        score: 60,
+        assignedAgent: 'asesor3',
+        campaignOriginCode: 'GOOGLE07',
+        isActive: true,
+        activationDate: '2024-01-29',
+        activatedBy: 'asesor3'
+      },
+      {
+        id: 'lead_8',
+        vendorLeadCode: 'LC008',
+        firstName: 'Mateo',
+        lastName: 'Vargas',
+        phoneNumber: '3128889999',
+        email: 'mateo.vargas@example.com',
+        status: 'CALLBACK',
+        source: 'Referido',
+        entryDate: '2024-02-01',
+        lastCallDate: '2024-02-02',
+        callCount: 1,
+        comments: 'Llamar después de las 3 PM',
+        priority: 7,
+        score: 75,
+        assignedAgent: 'asesor2',
+        campaignOriginCode: 'REFERIDO08',
+        isActive: false
+      },
+      {
+        id: 'lead_9',
+        vendorLeadCode: 'LC009',
+        firstName: 'Camila',
+        lastName: 'Díaz',
+        phoneNumber: '3229990000',
+        email: 'camila.diaz@example.com',
+        status: 'SALE',
+        source: 'Website',
+        entryDate: '2024-02-05',
+        callCount: 4,
+        comments: 'Aceptó la oferta, coordinar firma',
+        priority: 8,
         score: 95,
         assignedAgent: 'asesor1',
-        campaignOriginCode: 'TIK_VIDA_2024',
+        campaignOriginCode: 'WEB09',
         isActive: true,
-        activationDate: '2024-01-14T15:00:00Z',
+        activationDate: '2024-02-06',
         activatedBy: 'asesor1'
+      },
+      {
+        id: 'lead_10',
+        vendorLeadCode: 'LC010',
+        firstName: 'Samuel',
+        lastName: 'Gómez',
+        phoneNumber: '3030001111',
+        email: 'samuel.gomez@example.com',
+        status: 'NOT_INTERESTED',
+        source: 'TikTok Ads',
+        entryDate: '2024-02-10',
+        callCount: 2,
+        comments: 'Prefiere otra aseguradora',
+        priority: 2,
+        score: 30,
+        assignedAgent: 'asesor3',
+        campaignOriginCode: 'TIKTOK10',
+        isActive: false
       }
     ];
   }
 
-  private generateSampleLeadPromotions(): any[] {
+  private getDefaultLeadPromotions(): LeadPromotion[] {
     return [
       {
-        id: 'promo_001',
-        leadId: 'lead_001',
-        phoneNumber: '3001234567',
-        promotionId: 'PROM001',
-        promotionName: 'Seguro de Vida 50% Descuento',
+        id: 'promo_1',
+        leadId: 'lead_1',
+        phoneNumber: '3001112222',
+        promotionId: 'promo123',
+        promotionName: 'Descuento Familiar',
         interestLevel: 8,
         status: 'INTERESTED',
-        dateShown: '2024-01-15T10:45:00Z',
-        notes: 'Muy interesado, tiene familia joven',
+        dateShown: '2024-02-01',
+        notes: 'Mostró interés en el descuento',
         followUpRequired: true,
-        nextFollowUpDate: '2024-01-18T10:00:00Z'
+        nextFollowUpDate: '2024-02-05'
       },
       {
-        id: 'promo_002',
-        leadId: 'lead_001',
-        phoneNumber: '3001234567',
-        promotionId: 'PROM002',
-        promotionName: 'Seguro Hogar + Auto Combo',
+        id: 'promo_2',
+        leadId: 'lead_2',
+        phoneNumber: '3102223333',
+        promotionId: 'promo456',
+        promotionName: 'Cobertura Internacional Plus',
         interestLevel: 6,
         status: 'PRESENTED',
-        dateShown: '2024-01-15T11:15:00Z',
-        notes: 'Interés moderado, necesita consultar con esposa',
+        dateShown: '2024-02-03',
+        responseDate: '2024-02-04',
+        notes: 'En espera de respuesta',
         followUpRequired: true,
-        nextFollowUpDate: '2024-01-20T14:00:00Z'
+        nextFollowUpDate: '2024-02-07'
       },
       {
-        id: 'promo_003',
-        leadId: 'lead_003',
-        phoneNumber: '3157894561',
-        promotionId: 'PROM001',
-        promotionName: 'Seguro de Vida 50% Descuento',
-        interestLevel: 10,
+        id: 'promo_3',
+        leadId: 'lead_3',
+        phoneNumber: '3203334444',
+        promotionId: 'promo789',
+        promotionName: 'Beneficios Exclusivos Oro',
+        interestLevel: 9,
         status: 'ACCEPTED',
-        dateShown: '2024-01-14T14:30:00Z',
-        responseDate: '2024-01-14T15:30:00Z',
-        notes: 'Aceptó la promoción - VENTA CERRADA',
+        dateShown: '2024-02-05',
+        responseDate: '2024-02-06',
+        notes: 'Aceptó la promoción, coordinar activación',
         followUpRequired: false
+      },
+      {
+        id: 'promo_4',
+        leadId: 'lead_4',
+        phoneNumber: '3014445555',
+        promotionId: 'promo101',
+        promotionName: 'Regalo por Activación Inmediata',
+        interestLevel: 4,
+        status: 'REJECTED',
+        dateShown: '2024-02-07',
+        responseDate: '2024-02-08',
+        notes: 'No le interesó el regalo',
+        followUpRequired: false
+      },
+      {
+        id: 'promo_5',
+        leadId: 'lead_5',
+        phoneNumber: '3115556666',
+        promotionId: 'promo202',
+        promotionName: 'Plan de Lealtad Diamante',
+        interestLevel: 7,
+        status: 'PENDING',
+        dateShown: '2024-02-09',
+        notes: 'Enviada información detallada',
+        followUpRequired: true,
+        nextFollowUpDate: '2024-02-12'
       }
     ];
   }
 
-  private generateSampleLeadInteractions(): any[] {
+  private getDefaultLeadInteractions(): LeadInteraction[] {
     return [
       {
-        id: 'interaction_001',
-        leadId: 'lead_001',
-        phoneNumber: '3001234567',
+        id: 'interaction_1',
+        leadId: 'lead_1',
+        phoneNumber: '3001112222',
         advisorId: 'asesor1',
         interactionType: 'CALL',
-        date: '2024-01-15T10:30:00Z',
-        duration: 450,
+        date: '2024-02-01',
+        duration: 180,
         outcome: 'CONTACT_MADE',
-        notes: 'Primera llamada exitosa, cliente muy receptivo',
-        promotionsDiscussed: ['PROM001', 'PROM002'],
-        nextAction: 'Enviar cotización por WhatsApp',
-        nextActionDate: '2024-01-15T16:00:00Z'
+        notes: 'Se explicó el plan familiar',
+        promotionsDiscussed: ['promo123'],
+        nextAction: 'Enviar brochure',
+        nextActionDate: '2024-02-02'
       },
       {
-        id: 'interaction_002',
-        leadId: 'lead_001',
-        phoneNumber: '3001234567',
-        advisorId: 'asesor1',
-        interactionType: 'WHATSAPP',
-        date: '2024-01-15T16:00:00Z',
+        id: 'interaction_2',
+        leadId: 'lead_2',
+        phoneNumber: '3102223333',
+        advisorId: 'asesor2',
+        interactionType: 'EMAIL',
+        date: '2024-02-03',
         duration: 0,
         outcome: 'CONTACT_MADE',
-        notes: 'Envió cotización detallada por WhatsApp',
-        promotionsDiscussed: ['PROM001'],
-        nextAction: 'Llamada de seguimiento',
-        nextActionDate: '2024-01-18T10:00:00Z'
+        notes: 'Se envió información sobre cobertura internacional',
+        promotionsDiscussed: ['promo456']
       },
       {
-        id: 'interaction_003',
-        leadId: 'lead_003',
-        phoneNumber: '3157894561',
+        id: 'interaction_3',
+        leadId: 'lead_3',
+        phoneNumber: '3203334444',
         advisorId: 'asesor1',
-        interactionType: 'CALL',
-        date: '2024-01-14T14:20:00Z',
-        duration: 780,
+        interactionType: 'WHATSAPP',
+        date: '2024-02-05',
+        duration: 0,
+        outcome: 'APPOINTMENT_SET',
+        notes: 'Confirmado callback para el viernes',
+        promotionsDiscussed: ['promo789'],
+        nextAction: 'Preparar propuesta',
+        nextActionDate: '2024-02-09'
+      },
+      {
+        id: 'interaction_4',
+        leadId: 'lead_4',
+        phoneNumber: '3014445555',
+        advisorId: 'asesor3',
+        interactionType: 'MEETING',
+        date: '2024-02-07',
+        duration: 60,
         outcome: 'SALE',
-        notes: 'Llamada de cierre exitosa - Venta concretada',
-        promotionsDiscussed: ['PROM001'],
-        nextAction: 'Enviar documentos para firma',
-        nextActionDate: '2024-01-15T09:00:00Z'
-      }
-    ];
-  }
-
-  private generateSampleCampaigns(): any[] {
-    return [
-      {
-        id: 'campaign_001',
-        name: 'Ventas Premium',
-        description: 'Campaña de seguros premium',
-        status: 'ACTIVE',
-        listId: '101',
-        dialMethod: 'RATIO',
-        maxRatio: 2.5,
-        totalLeads: 1500,
-        contactedLeads: 850,
-        successfulCalls: 125,
-        startDate: '2024-01-01',
-        agentsAssigned: 8,
-        priority: 1,
-        conversionRate: 14.7
-      }
-    ];
-  }
-
-  private generateSampleAdvisorMetrics(): any[] {
-    return [
-      {
-        id: 'asesor1',
-        name: 'María González',
-        email: 'maria.gonzalez@ccd.com',
-        status: 'ACTIVE',
-        campaign: 'Ventas Premium',
-        shift: '08:00-17:00',
-        callsToday: 45,
-        callsWeek: 220,
-        callsMonth: 950,
-        avgCallDuration: 280,
-        totalCallTime: 12600,
-        contactsToday: 28,
-        appointmentsToday: 8,
-        salesToday: 3,
-        conversionRate: 10.7,
-        appointmentRate: 28.6,
-        qualityScore: 87,
-        customerSatisfaction: 4.2,
-        scriptCompliance: 92,
-        objectionHandling: 85,
-        leadsAssigned: 75,
-        leadsContacted: 65,
-        leadsConverted: 7,
-        avgResponseTime: 45,
-        followUpRate: 89,
-        loginTime: '08:00:00',
-        breakTime: 1800,
-        productiveTime: 25200,
-        idleTime: 900,
-        lastActivity: new Date().toISOString(),
-        ranking: 3
+        notes: 'Cierre exitoso, póliza activada',
+        promotionsDiscussed: ['promo101']
       },
       {
-        id: 'asesor2',
-        name: 'Carlos Rodríguez',
-        email: 'carlos.rodriguez@ccd.com',
-        status: 'ACTIVE',
-        campaign: 'Ventas Premium',
-        shift: '09:00-18:00',
-        callsToday: 38,
-        callsWeek: 185,
-        callsMonth: 820,
-        avgCallDuration: 245,
-        totalCallTime: 9310,
-        contactsToday: 22,
-        appointmentsToday: 5,
-        salesToday: 2,
-        conversionRate: 9.1,
-        appointmentRate: 22.7,
-        qualityScore: 78,
-        customerSatisfaction: 3.8,
-        scriptCompliance: 88,
-        objectionHandling: 75,
-        leadsAssigned: 68,
-        leadsContacted: 58,
-        leadsConverted: 5,
-        avgResponseTime: 52,
-        followUpRate: 76,
-        loginTime: '09:00:00',
-        breakTime: 2100,
-        productiveTime: 23400,
-        idleTime: 1500,
-        lastActivity: new Date().toISOString(),
-        ranking: 7
+        id: 'interaction_5',
+        leadId: 'lead_5',
+        phoneNumber: '3115556666',
+        advisorId: 'asesor2',
+        interactionType: 'SMS',
+        date: '2024-02-09',
+        duration: 0,
+        outcome: 'NO_ANSWER',
+        notes: 'Mensaje de seguimiento enviado',
+        promotionsDiscussed: ['promo202'],
+        nextAction: 'Llamar nuevamente',
+        nextActionDate: '2024-02-12'
       }
     ];
   }
 
-  private generateSampleAgents(): any[] {
+  private getDefaultCampaignProfitability(): CampaignProfitability[] {
     return [
       {
-        user: 'asesor1',
-        fullName: 'María González',
-        status: 'READY',
-        campaignId: 'VENTAS_PREMIUM',
-        callsToday: 45,
-        salesToday: 3,
-        avgCallTime: 280
-      },
-      {
-        user: 'asesor2',
-        fullName: 'Carlos Rodríguez',
-        status: 'INCALL',
-        campaignId: 'VENTAS_PREMIUM',
-        callsToday: 38,
-        salesToday: 2,
-        avgCallTime: 245
-      }
-    ];
-  }
-
-  private generateSamplePromotions(): any[] {
-    return [
-      {
-        id: 'PROM001',
-        promotionCode: 'SEGURO_VIDA_50',
-        promotionName: 'Seguro de Vida con 50% de Descuento',
-        description: 'Seguro de vida con cobertura completa y 50% de descuento en la primera anualidad',
-        discountType: 'PERCENTAGE',
-        discountValue: 50,
-        validFrom: '2024-01-01',
-        validUntil: '2024-06-30',
-        targetAudience: ['adultos-jovenes', 'familias', 'profesionales'],
-        requirements: 'Edad entre 25-45 años, ingresos mínimos $2,000,000',
-        maxUsage: 1000,
-        currentUsage: 245,
-        status: 'ACTIVE'
-      },
-      {
-        id: 'PROM002',
-        promotionCode: 'COMBO_HOGAR_AUTO',
-        promotionName: 'Combo Hogar + Auto',
-        description: 'Seguro de hogar y auto con descuento por paquete',
-        discountType: 'PERCENTAGE',
-        discountValue: 30,
-        validFrom: '2024-01-01',
-        validUntil: '2024-12-31',
-        targetAudience: ['propietarios', 'familias'],
-        requirements: 'Tener casa propia y vehículo',
-        maxUsage: 500,
-        currentUsage: 89,
-        status: 'ACTIVE'
-      }
-    ];
-  }
-
-  private generateSampleCampaignOrigins(): any[] {
-    return [
-      {
-        campaignCode: 'FB_VIDA_2024',
-        campaignName: 'Facebook - Seguros de Vida 2024',
-        source: 'FACEBOOK',
-        medium: 'CPC',
-        costPerLead: 15000,
+        campaignCode: 'META01',
+        campaignName: 'Campaña Meta Ads Enero',
         totalInvestment: 5000000,
-        leadsGenerated: 333,
-        conversions: 42,
-        roi: 2.8,
-        startDate: '2024-01-01',
-        status: 'ACTIVE',
-        targetAudience: {
-          ageRange: '25-45',
-          location: ['Bogotá', 'Medellín', 'Cali'],
-          interests: ['seguros', 'familia', 'protección'],
-          gender: 'ALL'
-        }
+        leadsGenerated: 50,
+        activatedLeads: 15,
+        conversions: 5,
+        revenue: 25000000,
+        roi: 400,
+        costPerLead: 100000,
+        costPerActivation: 333333,
+        costPerConversion: 1000000,
+        profitability: 20000000
       },
       {
-        campaignCode: 'GOOG_AUTO_2024',
-        campaignName: 'Google - Seguros de Auto 2024',
-        source: 'GOOGLE',
-        medium: 'CPC',
-        costPerLead: 18000,
-        totalInvestment: 3600000,
-        leadsGenerated: 200,
-        conversions: 28,
-        roi: 2.1,
-        startDate: '2024-01-01',
-        status: 'ACTIVE',
-        targetAudience: {
-          ageRange: '25-55',
-          location: ['Bogotá', 'Medellín', 'Cali', 'Barranquilla'],
-          interests: ['autos', 'seguros', 'vehículos'],
-          gender: 'ALL'
-        }
-      },
-      {
-        campaignCode: 'TIK_VIDA_2024',
-        campaignName: 'TikTok - Seguros Jóvenes 2024',
-        source: 'TIKTOK',
-        medium: 'CPC',
-        costPerLead: 12000,
-        totalInvestment: 2400000,
-        leadsGenerated: 200,
-        conversions: 15,
-        roi: 1.5,
-        startDate: '2024-01-01',
-        status: 'ACTIVE',
-        targetAudience: {
-          ageRange: '18-35',
-          location: ['Bogotá', 'Medellín', 'Cali'],
-          interests: ['seguros', 'protección', 'familia'],
-          gender: 'ALL'
-        }
+        campaignCode: 'GOOGLE02',
+        campaignName: 'Campaña Google Ads Febrero',
+        totalInvestment: 7500000,
+        leadsGenerated: 75,
+        activatedLeads: 25,
+        conversions: 8,
+        revenue: 40000000,
+        roi: 433,
+        costPerLead: 100000,
+        costPerActivation: 300000,
+        costPerConversion: 937500,
+        profitability: 32500000
       }
     ];
+  }
+
+  getLeads(filters: any): Lead[] {
+    let filteredLeads = [...this.leads];
+
+    if (filters.status && filters.status !== 'all') {
+      filteredLeads = filteredLeads.filter(lead => lead.status === filters.status);
+    }
+
+    if (filters.source) {
+      filteredLeads = filteredLeads.filter(lead => lead.source === filters.source);
+    }
+
+    if (filters.search) {
+      const searchTerm = filters.search.toLowerCase();
+      filteredLeads = filteredLeads.filter(lead =>
+        lead.firstName.toLowerCase().includes(searchTerm) ||
+        lead.lastName.toLowerCase().includes(searchTerm) ||
+        lead.phoneNumber.includes(searchTerm) ||
+        lead.email?.toLowerCase().includes(searchTerm)
+      );
+    }
+    
+    if (filters.campaignCode) {
+      filteredLeads = filteredLeads.filter(lead => lead.campaignOriginCode === filters.campaignCode);
+    }
+    
+    if (filters.isActive && filters.isActive !== 'all') {
+      const isActive = filters.isActive === 'true';
+      filteredLeads = filteredLeads.filter(lead => lead.isActive === isActive);
+    }
+    
+    if (filters.hasPromotions && filters.hasPromotions !== 'all') {
+      const hasPromotions = filters.hasPromotions === 'true';
+      filteredLeads = filteredLeads.filter(lead => {
+        const leadPromotions = this.leadPromotions.filter(promo => promo.leadId === lead.id);
+        return hasPromotions ? leadPromotions.length > 0 : leadPromotions.length === 0;
+      });
+    }
+
+    return filteredLeads;
+  }
+
+  getLeadPromotions(): LeadPromotion[] {
+    return [...this.leadPromotions];
+  }
+
+  getLeadInteractions(): LeadInteraction[] {
+    return [...this.leadInteractions];
+  }
+
+  getCampaignProfitability(): CampaignProfitability[] {
+    return [...this.campaignProfitability];
+  }
+
+  addLead(leadData: Partial<Lead>): void {
+    const newLead: Lead = {
+      id: `lead_${Date.now()}`,
+      vendorLeadCode: `LC${Date.now()}`,
+      firstName: leadData.firstName || 'N/A',
+      lastName: leadData.lastName || 'N/A',
+      phoneNumber: leadData.phoneNumber || 'N/A',
+      email: leadData.email || '',
+      status: 'NEW',
+      source: leadData.source || 'Manual',
+      entryDate: new Date().toISOString().split('T')[0],
+      callCount: 0,
+      comments: leadData.comments || '',
+      priority: leadData.priority || 5,
+      score: 50,
+      assignedAgent: 'N/A',
+      campaignOriginCode: leadData.campaignOriginCode || 'UNKNOWN',
+      isActive: false,
+      activationDate: leadData.activationDate,
+      activatedBy: leadData.activatedBy
+    };
+    this.leads.push(newLead);
+    this.saveToStorage();
+    console.log('Nuevo lead agregado:', newLead);
+  }
+
+  updateLead(id: string, updates: Partial<Lead>): void {
+    this.leads = this.leads.map(lead => {
+      if (lead.id === id) {
+        return { ...lead, ...updates };
+      }
+      return lead;
+    });
+    this.saveToStorage();
+    console.log(`Lead ${id} actualizado con:`, updates);
+  }
+
+  addLeadPromotion(promotionData: LeadPromotion): void {
+    this.leadPromotions.push(promotionData);
+    this.saveToStorage();
+    console.log('Nueva promoción agregada:', promotionData);
+  }
+
+  updateLeadPromotion(promotionId: string, updates: Partial<LeadPromotion>): void {
+    this.leadPromotions = this.leadPromotions.map(promotion => {
+      if (promotion.id === promotionId) {
+        return { ...promotion, ...updates };
+      }
+      return promotion;
+    });
+    this.saveToStorage();
+    console.log(`Promoción ${promotionId} actualizada con:`, updates);
+  }
+
+  addLeadInteraction(interactionData: LeadInteraction): void {
+    this.leadInteractions.push(interactionData);
+    this.saveToStorage();
+    console.log('Nueva interacción agregada:', interactionData);
+  }
+
+  deleteLead(leadId: string): void {
+    this.leads = this.leads.filter(lead => lead.id !== leadId);
+    this.saveToStorage();
+    console.log(`Lead ${leadId} deleted from local storage`);
   }
 }
 

@@ -1,4 +1,3 @@
-
 interface VicidialAgent {
   user: string;
   fullName: string;
@@ -270,9 +269,9 @@ class VicidialService {
   private database: string;
 
   constructor() {
-    this.baseUrl = process.env.VICIDIAL_API_URL || 'http://localhost/vicidial';
-    this.apiKey = process.env.VICIDIAL_API_KEY || 'demo_api_key';
-    this.database = process.env.VICIDIAL_DB || 'asterisk';
+    this.baseUrl = 'http://localhost/vicidial';
+    this.apiKey = 'demo_api_key';
+    this.database = 'asterisk';
   }
 
   // Método para hacer llamadas a la API de Vicidial
