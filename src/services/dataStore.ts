@@ -1,4 +1,3 @@
-
 // Local storage service for offline functionality
 interface Lead {
   id: string;
@@ -189,8 +188,13 @@ class DataStoreService {
       status: 'NEW',
       priority: 5,
       comments: '',
+      firstName: '',
+      lastName: '',
+      phoneNumber: '',
+      email: '',
+      source: '',
       ...lead
-    } as Lead;
+    };
     
     leads.push(newLead);
     this.saveToStorage('leads', leads);
@@ -263,8 +267,10 @@ class DataStoreService {
       dialMethod: 'MANUAL',
       maxRatio: 1,
       listId: `list_${Date.now()}`,
+      name: '',
+      description: '',
       ...campaign
-    } as Campaign;
+    };
     
     campaigns.push(newCampaign);
     this.saveToStorage('campaigns', campaigns);
@@ -315,8 +321,11 @@ class DataStoreService {
       },
       comments: '',
       recommendations: [],
+      advisorId: '',
+      reviewerId: '',
+      callId: '',
       ...review
-    } as QualityReview;
+    };
     
     reviews.push(newReview);
     this.saveToStorage('quality_reviews', reviews);
@@ -349,7 +358,7 @@ class DataStoreService {
         lastUpdated: new Date().toISOString(),
         notes: '',
         ...classification
-      } as LeadClassification;
+      };
       classifications.push(newClassification);
     }
     
@@ -363,15 +372,17 @@ class DataStoreService {
       date: new Date().toISOString(),
       type: 'BEHAVIOR',
       impact: 'MEDIUM',
+      leadId: '',
+      advisorId: '',
+      description: '',
       ...observation
-    } as LeadObservation;
+    };
     
     observations.push(newObservation);
     this.saveToStorage('lead_observations', observations);
   }
 
   applyPromotion(leadId: string, promotionId: string): void {
-    // Implementation for applying promotions
     console.log(`Applying promotion ${promotionId} to lead ${leadId}`);
   }
 
@@ -391,8 +402,10 @@ class DataStoreService {
       status: 'PENDING',
       type: 'CALL',
       createdDate: new Date().toISOString(),
+      leadId: '',
+      advisorId: '',
       ...task
-    } as FollowUpTask;
+    };
     
     tasks.push(newTask);
     this.saveToStorage('follow_up_tasks', tasks);
