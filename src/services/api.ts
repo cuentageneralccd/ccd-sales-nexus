@@ -1,153 +1,44 @@
-// Simulación de API real para el CRM
-export interface ApiResponse<T> {
-  data: T;
-  success: boolean;
-  message?: string;
-  pagination?: {
-    page: number;
-    limit: number;
-    total: number;
-  };
-}
 
-// Simulación de delay de red
-const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+// Main API service that combines all API modules
+import { LeadsApiService } from './api/leadsApi';
+import { CampaignsApiService } from './api/campaignsApi';
+import { PromotionsApiService } from './api/promotionsApi';
+import { VicidialApiService } from './api/vicidialApi';
+import { BaseApiService, ApiResponse } from './api/baseApi';
 
-// Configuración de la API
-const API_CONFIG = {
-  baseUrl: 'https://api.ccdcrm.com',
-  timeout: 10000,
-  retries: 3
-};
+class ApiService extends BaseApiService {
+  private leadsApi = new LeadsApiService();
+  private campaignsApi = new CampaignsApiService();
+  private promotionsApi = new PromotionsApiService();
+  private vicidialApi = new VicidialApiService();
 
-class ApiService {
-  private async makeRequest<T>(endpoint: string, options: RequestInit = {}): Promise<ApiResponse<T>> {
-    await delay(Math.random() * 1000 + 500); // Simular latencia de red
-    
-    // Simulación de respuestas exitosas vs errores
-    const shouldFail = Math.random() < 0.05; // 5% de probabilidad de error
-    
-    if (shouldFail) {
-      throw new Error('Error de conexión con el servidor');
-    }
-    
-    console.log(`API Call: ${endpoint}`, options);
-    
-    return {
-      data: {} as T,
-      success: true,
-      message: 'Operación exitosa'
-    };
-  }
+  // Leads methods
+  async getLeads(filters?: any) { return this.leadsApi.getLeads(filters); }
+  async createLead(leadData: any) { return this.leadsApi.createLead(leadData); }
+  async updateLead(id: string, leadData: any) { return this.leadsApi.updateLead(id, leadData); }
+  async deleteLead(id: string) { return this.leadsApi.deleteLead(id); }
+  async activateLead(leadId: string, advisorId: string) { return this.leadsApi.activateLead(leadId, advisorId); }
+  async getLeadByPhone(phoneNumber: string) { return this.leadsApi.getLeadByPhone(phoneNumber); }
+  async getLeadFullHistory(phoneNumber: string) { return this.leadsApi.getLeadFullHistory(phoneNumber); }
 
-  // Leads endpoints
-  async getLeads(filters?: any): Promise<ApiResponse<any[]>> {
-    return this.makeRequest('/leads', { method: 'GET' });
-  }
+  // Campaigns methods
+  async getCampaigns() { return this.campaignsApi.getCampaigns(); }
+  async createCampaign(campaignData: any) { return this.campaignsApi.createCampaign(campaignData); }
+  async updateCampaignStatus(id: string, status: string) { return this.campaignsApi.updateCampaignStatus(id, status); }
 
-  async createLead(leadData: any): Promise<ApiResponse<any>> {
-    return this.makeRequest('/leads', {
-      method: 'POST',
-      body: JSON.stringify(leadData)
-    });
-  }
+  // Promotions methods
+  async getLeadPromotions(phoneNumber?: string) { return this.promotionsApi.getLeadPromotions(phoneNumber); }
+  async addLeadPromotion(promotionData: any) { return this.promotionsApi.addLeadPromotion(promotionData); }
+  async updateLeadPromotion(promotionId: string, updates: any) { return this.promotionsApi.updateLeadPromotion(promotionId, updates); }
+  async getLeadInteractions(phoneNumber?: string) { return this.promotionsApi.getLeadInteractions(phoneNumber); }
+  async addLeadInteraction(interactionData: any) { return this.promotionsApi.addLeadInteraction(interactionData); }
 
-  async updateLead(id: string, leadData: any): Promise<ApiResponse<any>> {
-    return this.makeRequest(`/leads/${id}`, {
-      method: 'PUT',
-      body: JSON.stringify(leadData)
-    });
-  }
+  // Vicidial methods
+  async initiateCall(phoneNumber: string, agentId?: string) { return this.vicidialApi.initiateCall(phoneNumber, agentId); }
+  async getAgentStatus() { return this.vicidialApi.getAgentStatus(); }
+  async getActiveCalls() { return this.vicidialApi.getActiveCalls(); }
 
-  // NUEVO: Método faltante para eliminar lead
-  async deleteLead(id: string): Promise<ApiResponse<any>> {
-    return this.makeRequest(`/leads/${id}`, {
-      method: 'DELETE'
-    });
-  }
-
-  // Lead Promotions endpoints
-  async getLeadPromotions(phoneNumber?: string): Promise<ApiResponse<any[]>> {
-    const endpoint = phoneNumber ? `/leads/promotions?phone=${phoneNumber}` : '/leads/promotions';
-    return this.makeRequest(endpoint);
-  }
-
-  async addLeadPromotion(promotionData: any): Promise<ApiResponse<any>> {
-    return this.makeRequest('/leads/promotions', {
-      method: 'POST',
-      body: JSON.stringify(promotionData)
-    });
-  }
-
-  async updateLeadPromotion(promotionId: string, updates: any): Promise<ApiResponse<any>> {
-    return this.makeRequest(`/leads/promotions/${promotionId}`, {
-      method: 'PATCH',
-      body: JSON.stringify(updates)
-    });
-  }
-
-  // Lead Interactions endpoints
-  async getLeadInteractions(phoneNumber?: string): Promise<ApiResponse<any[]>> {
-    const endpoint = phoneNumber ? `/leads/interactions?phone=${phoneNumber}` : '/leads/interactions';
-    return this.makeRequest(endpoint);
-  }
-
-  async addLeadInteraction(interactionData: any): Promise<ApiResponse<any>> {
-    return this.makeRequest('/leads/interactions', {
-      method: 'POST',
-      body: JSON.stringify(interactionData)
-    });
-  }
-
-  // Lead Activation endpoints
-  async activateLead(leadId: string, advisorId: string): Promise<ApiResponse<any>> {
-    return this.makeRequest(`/leads/${leadId}/activate`, {
-      method: 'POST',
-      body: JSON.stringify({ advisorId, activationDate: new Date().toISOString() })
-    });
-  }
-
-  async getLeadByPhone(phoneNumber: string): Promise<ApiResponse<any>> {
-    return this.makeRequest(`/leads/by-phone/${phoneNumber}`);
-  }
-
-  // Campaign Profitability endpoints
-  async getCampaignProfitability(): Promise<ApiResponse<any[]>> {
-    return this.makeRequest('/analytics/campaign-profitability');
-  }
-
-  async getCampaignROI(campaignCode: string): Promise<ApiResponse<any>> {
-    return this.makeRequest(`/analytics/campaign-roi/${campaignCode}`);
-  }
-
-  // Lead Tracking by Phone endpoints
-  async getLeadFullHistory(phoneNumber: string): Promise<ApiResponse<any>> {
-    return this.makeRequest(`/leads/history/${phoneNumber}`);
-  }
-
-  async getLeadPromotionHistory(phoneNumber: string): Promise<ApiResponse<any[]>> {
-    return this.makeRequest(`/leads/promotions/history/${phoneNumber}`);
-  }
-
-  // Campaigns endpoints
-  async getCampaigns(): Promise<ApiResponse<any[]>> {
-    return this.makeRequest('/campaigns');
-  }
-
-  async createCampaign(campaignData: any): Promise<ApiResponse<any>> {
-    return this.makeRequest('/campaigns', {
-      method: 'POST',
-      body: JSON.stringify(campaignData)
-    });
-  }
-
-  async updateCampaignStatus(id: string, status: string): Promise<ApiResponse<any>> {
-    return this.makeRequest(`/campaigns/${id}/status`, {
-      method: 'PATCH',
-      body: JSON.stringify({ status })
-    });
-  }
-
+  // Additional methods that weren't refactored
   async getFinancialMetrics(): Promise<ApiResponse<any>> {
     return this.makeRequest('/analytics/financial');
   }
@@ -156,7 +47,6 @@ class ApiService {
     return this.makeRequest('/analytics/revenue-sources');
   }
 
-  // Communication endpoints
   async sendMessage(messageData: any): Promise<ApiResponse<any>> {
     return this.makeRequest('/communication/send', {
       method: 'POST',
@@ -168,23 +58,6 @@ class ApiService {
     return this.makeRequest('/communication/templates');
   }
 
-  // Vicidial integration
-  async initiateCall(phoneNumber: string, agentId?: string): Promise<ApiResponse<any>> {
-    return this.makeRequest('/vicidial/call', {
-      method: 'POST',
-      body: JSON.stringify({ phoneNumber, agentId })
-    });
-  }
-
-  async getAgentStatus(): Promise<ApiResponse<any[]>> {
-    return this.makeRequest('/vicidial/agents');
-  }
-
-  async getActiveCalls(): Promise<ApiResponse<any[]>> {
-    return this.makeRequest('/vicidial/calls/active');
-  }
-
-  // Advisor Performance endpoints
   async getAdvisorMetrics(): Promise<ApiResponse<any[]>> {
     return this.makeRequest('/advisors/metrics');
   }
@@ -208,7 +81,6 @@ class ApiService {
     return this.makeRequest(endpoint);
   }
 
-  // Lead Classification endpoints
   async getLeadClassifications(filters?: any): Promise<ApiResponse<any[]>> {
     return this.makeRequest('/leads/classifications', { method: 'GET' });
   }
@@ -240,7 +112,6 @@ class ApiService {
     });
   }
 
-  // Follow-up Tasks endpoints
   async getFollowUpTasks(advisorId?: string): Promise<ApiResponse<any[]>> {
     const endpoint = advisorId ? `/tasks/followup?advisorId=${advisorId}` : '/tasks/followup';
     return this.makeRequest(endpoint);
@@ -267,7 +138,6 @@ class ApiService {
     });
   }
 
-  // Analytics endpoints for new features
   async getAdvisorPerformanceReport(dateRange: { start: string; end: string }): Promise<ApiResponse<any>> {
     return this.makeRequest('/analytics/advisor-performance', {
       method: 'POST',
@@ -282,6 +152,18 @@ class ApiService {
   async getQualityTrends(advisorId?: string): Promise<ApiResponse<any>> {
     const endpoint = advisorId ? `/analytics/quality-trends?advisorId=${advisorId}` : '/analytics/quality-trends';
     return this.makeRequest(endpoint);
+  }
+
+  async getCampaignProfitability(): Promise<ApiResponse<any[]>> {
+    return this.makeRequest('/analytics/campaign-profitability');
+  }
+
+  async getCampaignROI(campaignCode: string): Promise<ApiResponse<any>> {
+    return this.makeRequest(`/analytics/campaign-roi/${campaignCode}`);
+  }
+
+  async getLeadPromotionHistory(phoneNumber: string): Promise<ApiResponse<any[]>> {
+    return this.makeRequest(`/leads/promotions/history/${phoneNumber}`);
   }
 }
 

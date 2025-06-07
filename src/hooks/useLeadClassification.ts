@@ -7,181 +7,126 @@ import { useToast } from '@/hooks/use-toast';
 interface LeadClassification {
   id: string;
   leadId: string;
+  phoneNumber: string;
+  stage: 'PROSPECT' | 'QUALIFIED' | 'PROPOSAL' | 'NEGOTIATION' | 'CLOSED_WON' | 'CLOSED_LOST';
+  temperature: 'HOT' | 'WARM' | 'COLD';
+  budget: number;
+  authority: boolean;
+  need: boolean;
+  timeline: string;
+  painPoints: string[];
+  interests: string[];
+  lastUpdated: string;
+  notes: string;
+}
+
+interface LeadObservation {
+  id: string;
+  leadId: string;
   advisorId: string;
-  
-  // Tipificación
-  leadType: 'HOT' | 'WARM' | 'COLD' | 'QUALIFIED' | 'UNQUALIFIED';
-  interest_level: number; // 1-10
-  budget_range: 'LOW' | 'MEDIUM' | 'HIGH' | 'PREMIUM';
-  decision_timeline: 'IMMEDIATE' | 'WEEK' | 'MONTH' | 'QUARTER' | 'LONG_TERM';
-  authority_level: 'DECISION_MAKER' | 'INFLUENCER' | 'USER' | 'UNKNOWN';
-  
-  // Seguimiento de etapas
-  currentStage: 'NEW' | 'CONTACTED' | 'QUALIFIED' | 'PRESENTATION' | 'PROPOSAL' | 'NEGOTIATION' | 'CLOSED_WON' | 'CLOSED_LOST';
-  previousStages: string[];
-  stageHistory: {
-    stage: string;
-    date: string;
-    advisorId: string;
-    duration: number; // minutos en la etapa
-    notes: string;
-  }[];
-  
-  // Observaciones y seguimiento
-  observations: {
-    id: string;
-    date: string;
-    advisorId: string;
-    type: 'CALL' | 'EMAIL' | 'MEETING' | 'NOTE' | 'TASK';
-    content: string;
-    priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
-    followUpDate?: string;
-    completed: boolean;
-  }[];
-  
-  // Promociones y ofertas
-  promotions: {
-    id: string;
-    name: string;
-    description: string;
-    discount: number;
-    validUntil: string;
-    applied: boolean;
-    appliedDate?: string;
-    status: 'PENDING' | 'ACCEPTED' | 'REJECTED' | 'EXPIRED';
-  }[];
-  
-  // Métricas de seguimiento
-  contactAttempts: number;
-  lastContactDate: string;
-  nextContactDate: string;
-  responseRate: number;
-  engagementScore: number;
-  
-  createdAt: string;
-  updatedAt: string;
+  date: string;
+  type: 'BEHAVIOR' | 'INTEREST' | 'OBJECTION' | 'PREFERENCE';
+  description: string;
+  impact: 'HIGH' | 'MEDIUM' | 'LOW';
 }
 
 interface FollowUpTask {
   id: string;
   leadId: string;
   advisorId: string;
-  type: 'CALL' | 'EMAIL' | 'MEETING' | 'QUOTE' | 'PRESENTATION';
   title: string;
   description: string;
-  scheduledDate: string;
-  priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
-  status: 'PENDING' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
+  dueDate: string;
+  priority: 'HIGH' | 'MEDIUM' | 'LOW';
+  status: 'PENDING' | 'COMPLETED' | 'OVERDUE';
+  type: 'CALL' | 'EMAIL' | 'MEETING' | 'RESEARCH' | 'PROPOSAL';
+  createdDate: string;
   completedDate?: string;
   result?: string;
-  nextAction?: string;
 }
 
 export const useLeadClassification = () => {
   const [classifications, setClassifications] = useState<LeadClassification[]>([]);
-  const [followUpTasks, setFollowUpTasks] = useState<FollowUpTask[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
 
   const loadClassifications = async () => {
     setIsLoading(true);
     try {
-      const localData = dataStore.getLeadClassifications();
-      setClassifications(localData);
+      const localClassifications = dataStore.getLeadClassifications();
+      setClassifications(localClassifications);
       
       const response = await apiService.getLeadClassifications();
       if (response.success) {
-        console.log('Clasificaciones sincronizadas');
+        console.log('Lead classifications synchronized');
       }
     } catch (error) {
-      console.error('Error cargando clasificaciones:', error);
+      console.error('Error loading lead classifications:', error);
     } finally {
       setIsLoading(false);
     }
   };
 
-  const classifyLead = async (leadId: string, classification: Partial<LeadClassification>) => {
+  const updateClassification = async (leadId: string, updates: Partial<LeadClassification>) => {
     try {
-      dataStore.updateLeadClassification(leadId, classification);
-      await apiService.updateLeadClassification(leadId, classification);
+      dataStore.updateLeadClassification(leadId, updates);
+      await apiService.updateLeadClassification(leadId, updates);
       
       toast({
-        title: "Lead Clasificado",
-        description: "La clasificación ha sido actualizada",
+        title: "Classification Updated",
+        description: "Lead classification has been saved",
       });
       
       await loadClassifications();
     } catch (error) {
-      console.error('Error clasificando lead:', error);
+      console.error('Error updating classification:', error);
       toast({
         title: "Error",
-        description: "No se pudo actualizar la clasificación",
+        description: "Could not update classification",
         variant: "destructive",
       });
     }
   };
 
-  const updateLeadStage = async (leadId: string, newStage: LeadClassification['currentStage'], notes: string = '') => {
+  const updateLeadStage = async (leadId: string, stage: LeadClassification['stage'], notes: string) => {
     try {
-      const classification = classifications.find(c => c.leadId === leadId);
-      if (!classification) return;
-
-      const stageEntry = {
-        stage: newStage,
-        date: new Date().toISOString(),
-        advisorId: classification.advisorId,
-        duration: 0, // Calcular basado en la etapa anterior
-        notes
-      };
-
-      const updatedClassification = {
-        ...classification,
-        currentStage: newStage,
-        previousStages: [...classification.previousStages, classification.currentStage],
-        stageHistory: [...classification.stageHistory, stageEntry],
-        updatedAt: new Date().toISOString()
-      };
-
-      dataStore.updateLeadClassification(leadId, updatedClassification);
-      await apiService.updateLeadStage(leadId, newStage, notes);
+      dataStore.updateLeadClassification(leadId, { 
+        stage, 
+        notes, 
+        lastUpdated: new Date().toISOString() 
+      });
+      await apiService.updateLeadStage(leadId, stage, notes);
       
       toast({
-        title: "Etapa Actualizada",
-        description: `Lead movido a ${newStage}`,
+        title: "Stage Updated",
+        description: `Lead moved to ${stage}`,
       });
       
       await loadClassifications();
     } catch (error) {
-      console.error('Error actualizando etapa:', error);
+      console.error('Error updating stage:', error);
       toast({
         title: "Error",
-        description: "No se pudo actualizar la etapa",
+        description: "Could not update stage",
         variant: "destructive",
       });
     }
   };
 
-  const addObservation = async (leadId: string, observation: Omit<LeadClassification['observations'][0], 'id'>) => {
+  const addObservation = async (leadId: string, observation: Partial<LeadObservation>) => {
     try {
-      const newObservation = {
-        ...observation,
-        id: `obs_${Date.now()}`,
-      };
-
-      dataStore.addLeadObservation(leadId, newObservation);
-      await apiService.addLeadObservation(leadId, newObservation);
+      dataStore.addLeadObservation(observation);
+      await apiService.addLeadObservation(leadId, observation);
       
       toast({
-        title: "Observación Agregada",
-        description: "La nota ha sido guardada",
+        title: "Observation Added",
+        description: "Lead observation has been recorded",
       });
-      
-      await loadClassifications();
     } catch (error) {
-      console.error('Error agregando observación:', error);
+      console.error('Error adding observation:', error);
       toast({
         title: "Error",
-        description: "No se pudo guardar la observación",
+        description: "Could not add observation",
         variant: "destructive",
       });
     }
@@ -193,106 +138,55 @@ export const useLeadClassification = () => {
       await apiService.applyPromotion(leadId, promotionId);
       
       toast({
-        title: "Promoción Aplicada",
-        description: "La oferta ha sido aplicada al lead",
+        title: "Promotion Applied",
+        description: "Promotion has been applied to lead",
       });
-      
-      await loadClassifications();
     } catch (error) {
-      console.error('Error aplicando promoción:', error);
+      console.error('Error applying promotion:', error);
       toast({
         title: "Error",
-        description: "No se pudo aplicar la promoción",
+        description: "Could not apply promotion",
         variant: "destructive",
       });
     }
   };
 
-  const createFollowUpTask = async (task: Omit<FollowUpTask, 'id'>) => {
+  const createFollowUpTask = async (taskData: Partial<FollowUpTask>) => {
     try {
-      const newTask = {
-        ...task,
-        id: `task_${Date.now()}`,
-      };
-
-      dataStore.addFollowUpTask(newTask);
-      await apiService.createFollowUpTask(newTask);
+      dataStore.addFollowUpTask(taskData);
+      await apiService.createFollowUpTask(taskData);
       
       toast({
-        title: "Tarea Creada",
-        description: "Recordatorio de seguimiento programado",
+        title: "Task Created",
+        description: "Follow-up task has been scheduled",
       });
-      
-      await loadFollowUpTasks();
     } catch (error) {
-      console.error('Error creando tarea:', error);
+      console.error('Error creating task:', error);
       toast({
         title: "Error",
-        description: "No se pudo crear la tarea",
+        description: "Could not create task",
         variant: "destructive",
       });
     }
   };
 
-  const loadFollowUpTasks = async () => {
-    try {
-      const tasks = dataStore.getFollowUpTasks();
-      setFollowUpTasks(tasks);
-    } catch (error) {
-      console.error('Error cargando tareas:', error);
-    }
-  };
-
-  const getLeadsByStage = () => {
-    const stageCount = classifications.reduce((acc, classification) => {
-      acc[classification.currentStage] = (acc[classification.currentStage] || 0) + 1;
-      return acc;
-    }, {} as Record<string, number>);
-    
-    return stageCount;
-  };
-
-  const getConversionFunnel = () => {
-    const stages = ['NEW', 'CONTACTED', 'QUALIFIED', 'PRESENTATION', 'PROPOSAL', 'NEGOTIATION', 'CLOSED_WON'];
-    const funnel = stages.map(stage => ({
-      stage,
-      count: classifications.filter(c => c.currentStage === stage).length,
-      percentage: 0
-    }));
-
-    const total = funnel[0]?.count || 1;
-    funnel.forEach(item => {
-      item.percentage = Math.round((item.count / total) * 100);
-    });
-
-    return funnel;
-  };
-
-  const getOverdueTasks = () => {
-    const now = new Date();
-    return followUpTasks.filter(task => 
-      task.status === 'PENDING' && 
-      new Date(task.scheduledDate) < now
-    );
+  const getFollowUpTasks = () => {
+    return dataStore.getFollowUpTasks();
   };
 
   useEffect(() => {
     loadClassifications();
-    loadFollowUpTasks();
   }, []);
 
   return {
     classifications,
-    followUpTasks,
     isLoading,
-    classifyLead,
+    updateClassification,
     updateLeadStage,
     addObservation,
     applyPromotion,
     createFollowUpTask,
-    getLeadsByStage,
-    getConversionFunnel,
-    getOverdueTasks,
+    getFollowUpTasks,
     refresh: loadClassifications
   };
 };
