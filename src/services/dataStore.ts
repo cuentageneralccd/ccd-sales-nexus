@@ -225,7 +225,7 @@ class DataStoreService {
 
   updateLeadPromotion(id: string, updates: any): void {
     const promotions = this.getFromStorage('lead_promotions');
-    const index = promotions.findIndex(p => p.id === id);
+    const index = promotions.findIndex((p: any) => p.id === id);
     if (index !== -1) {
       promotions[index] = { ...promotions[index], ...updates };
       this.saveToStorage('lead_promotions', promotions);

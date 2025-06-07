@@ -12,6 +12,8 @@ export const useRealTimeData = () => {
     leadsInQueue: 0
   });
 
+  const [isConnected, setIsConnected] = useState(true);
+
   const updateRealTimeStats = () => {
     const agents = dataStore.getAgents();
     const leads = dataStore.getLeads({});
@@ -35,6 +37,8 @@ export const useRealTimeData = () => {
 
   return {
     realTimeStats,
+    stats: realTimeStats, // Add alias for compatibility
+    isConnected,
     updateRealTimeStats
   };
 };

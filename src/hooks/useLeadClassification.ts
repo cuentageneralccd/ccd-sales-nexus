@@ -18,6 +18,18 @@ interface LeadClassification {
   interests: string[];
   lastUpdated: string;
   notes: string;
+  // Additional properties needed by the component
+  advisorId: string;
+  currentStage: string;
+  leadType: 'HOT' | 'WARM' | 'COLD' | 'QUALIFIED' | 'UNQUALIFIED';
+  stageHistory: Array<{id: string; stage: string; date: string}>;
+  interest_level: number;
+  budget_range: string;
+  decision_timeline: string;
+  authority_level: string;
+  observations: Array<{id: string; type: string; content: string; date: string}>;
+  promotions: Array<{id: string; name: string; status: string; discount: number}>;
+  nextContactDate: string;
 }
 
 interface LeadObservation {
@@ -43,6 +55,7 @@ interface FollowUpTask {
   createdDate: string;
   completedDate?: string;
   result?: string;
+  scheduledDate: string;
 }
 
 export const useLeadClassification = () => {
@@ -54,7 +67,22 @@ export const useLeadClassification = () => {
     setIsLoading(true);
     try {
       const localClassifications = dataStore.getLeadClassifications();
-      setClassifications(localClassifications);
+      // Transform the data to match the expected interface
+      const transformedClassifications = localClassifications.map(cls => ({
+        ...cls,
+        advisorId: 'current_advisor',
+        currentStage: cls.stage,
+        leadType: cls.temperature as any,
+        stageHistory: [{id: '1', stage: cls.stage, date: cls.lastUpdated}],
+        interest_level: 7,
+        budget_range: '$10,000 - $50,000',
+        decision_timeline: cls.timeline,
+        authority_level: cls.authority ? 'High' : 'Low',
+        observations: [],
+        promotions: [],
+        nextContactDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
+      }));
+      setClassifications(transformedClassifications);
       
       const response = await apiService.getLeadClassifications();
       if (response.success) {
@@ -170,8 +198,44 @@ export const useLeadClassification = () => {
     }
   };
 
-  const getFollowUpTasks = () => {
-    return dataStore.getFollowUpTasks();
+  const getFollowUpTasks = (): FollowUpTask[] => {
+    return dataStore.getFollowUpTasks().map(task => ({
+      ...task,
+      scheduledDate: task.dueDate
+    }));
+  };
+
+  const classifyLead = async (leadId: string, classification: Partial<LeadClassification>) => {
+    return updateClassification(leadId, classification);
+  };
+
+  const getLeadsByStage = () => {
+    return classifications.reduce((acc, cls) => {
+      acc[cls.stage] = (acc[cls.stage] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+  };
+
+  const getConversionFunnel = () => {
+    const stages = ['PROSPECT', 'QUALIFIED', 'PROPOSAL', 'NEGOTIATION', 'CLOSED_WON', 'CLOSED_LOST'];
+    const total = classifications.length;
+    
+    return stages.map(stage => {
+      const count = classifications.filter(cls => cls.stage === stage).length;
+      return {
+        stage,
+        count,
+        percentage: total > 0 ? Math.round((count / total) * 100) : 0
+      };
+    });
+  };
+
+  const getOverdueTasks = (): FollowUpTask[] => {
+    const tasks = getFollowUpTasks();
+    const now = new Date();
+    return tasks.filter(task => 
+      task.status === 'PENDING' && new Date(task.scheduledDate) < now
+    );
   };
 
   useEffect(() => {
@@ -180,6 +244,7 @@ export const useLeadClassification = () => {
 
   return {
     classifications,
+    followUpTasks: getFollowUpTasks(),
     isLoading,
     updateClassification,
     updateLeadStage,
@@ -187,6 +252,10 @@ export const useLeadClassification = () => {
     applyPromotion,
     createFollowUpTask,
     getFollowUpTasks,
+    classifyLead,
+    getLeadsByStage,
+    getConversionFunnel,
+    getOverdueTasks,
     refresh: loadClassifications
   };
 };

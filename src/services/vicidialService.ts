@@ -2,6 +2,16 @@
 // Main Vicidial service that uses the core service
 import { vicidialCore, VicidialAgent, VicidialCall, VicidialLead } from './vicidial/vicidialCore';
 
+interface SearchFilters {
+  phoneNumber?: string;
+  status?: string;
+  campaign?: string;
+  dateRange?: {
+    start: string;
+    end: string;
+  };
+}
+
 class VicidialService {
   async getAgentStatus(): Promise<VicidialAgent[]> {
     return vicidialCore.getAgentStatus();
@@ -27,6 +37,23 @@ class VicidialService {
 
   async unpauseAgent(user: string): Promise<any> {
     return vicidialCore.unpauseAgent({ user });
+  }
+
+  // Additional methods needed by hooks
+  async searchLeads(filters: SearchFilters): Promise<VicidialLead[]> {
+    // Simulate search functionality
+    console.log('Searching leads with filters:', filters);
+    return [];
+  }
+
+  async updateLeadStatus(leadId: string, status: string, notes?: string): Promise<any> {
+    console.log('Updating lead status:', leadId, status, notes);
+    return { success: true };
+  }
+
+  async getCallLog(agentId?: string, dateRange?: { start: string; end: string }): Promise<any[]> {
+    console.log('Getting call log for agent:', agentId, dateRange);
+    return [];
   }
 }
 

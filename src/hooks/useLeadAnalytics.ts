@@ -8,6 +8,7 @@ interface Lead {
   source: string;
   priority: number;
   isActive: boolean;
+  campaignOriginCode?: string; // Make it optional to fix the error
 }
 
 interface CampaignProfitability {
@@ -61,7 +62,7 @@ export const useLeadAnalytics = () => {
 
   const getCampaignProfitabilityReport = (): CampaignProfitability[] => {
     const campaignStats = leads.reduce((acc, lead) => {
-      const code = lead.campaignOriginCode;
+      const code = lead.campaignOriginCode || 'UNKNOWN';
       if (!acc[code]) {
         acc[code] = {
           campaignCode: code,
